@@ -1,11 +1,10 @@
 # WinClean v1.4 — Optimizador Windows 10 y 11
 
-Herramienta para eliminar bloatware, desactivar servicios innecesarios y aplicar tweaks de privacidad/rendimiento en Windows 10.
+Herramienta para eliminar bloatware, desactivar servicios innecesarios y aplicar tweaks de privacidad/rendimiento en Windows 10 y 11.
 
 ## Requisitos
 
-- Windows 10 (x64)
-- Windows 11
+- Windows 10/11 (x64)
 - Python 3.10+
 - Dependencias: `pip install pystray pillow`
 
@@ -39,7 +38,12 @@ Ejecutar `main.py` o doble click en `ejecutar.bat`. Requiere permisos de adminis
 
 He añadido funciones exclusivas para Windows 11 para retirar todo el contenido posible relacionado con la IA. He arreglado errores de reconocimiento de servicios y apps. He mejorado el rendimiento de la aplicación reduciendo el consumo de recursos en segundo plano y eso, poco más.
 
-Tengo varias mejoras pensadas para las siguientes versiones. btw, el código pasa por una IA para optimizarse porque yo aún no sé hacerlo, y además lo ordena muchísimo mejor que yo, que soy una patata xD
+Tengo varias mejoras pensadas para las siguientes versiones. btw, el código pasa por una IA para optimizarse porque yo aún no sé hacerlo, y además lo ordena muchísimo mejor que yo, que soy una chusta xD
+
+### Anotaciones
+El código ha sido ordenado y reorganizado para su optimización por Claude, yo a día de hoy no tengo la habilidad para limpiar el código y organizarlo bien, así que prefiero que para que la gente que lea el repositorio, se le haga más sencillo aplicar cambios o usar el mismo como base para algún programa.
+
+El proyecto se empezó hace el 13/04/2026 a fecha de escribir esto el proyecto tiene 3 días de antiguedad y aún tiene mucho margen de mejora.
 
 ## Arquitectura
 
