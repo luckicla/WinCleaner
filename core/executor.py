@@ -341,6 +341,57 @@ TWEAK_ACTIONS = {
             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile",
             "NetworkThrottlingIndex", 10),
     },
+    # ── Windows 11 tweaks ─────────────────────────────────────────────────
+    "w11_copilot_taskbar": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "ShowCopilotButton", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "ShowCopilotButton", 1),
+    },
+    "w11_recall": {
+        "apply":  lambda: _reg_set(winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 1),
+        "revert": lambda: _reg_set(winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 0),
+    },
+    "w11_ai_search": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled", 1),
+    },
+    "w11_widgets": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa", 1),
+    },
+    "w11_snap_suggest": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "SnapAssist", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "SnapAssist", 1),
+    },
+    "w11_typing_insights": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Input\Settings", "IsVoiceTypingKeyEnabled", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Input\Settings", "IsVoiceTypingKeyEnabled", 1),
+    },
+    "w11_personalized_ads": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy",
+            "TailoredExperiencesWithDiagnosticDataEnabled", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy",
+            "TailoredExperiencesWithDiagnosticDataEnabled", 1),
+    },
+    "w11_voice_typing": {
+        "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted", 0),
+        "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
+            r"SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted", 1),
+    },
 }
 
 
@@ -501,3 +552,278 @@ def load_startup_profile() -> str:
             return f.read().strip()
     except Exception:
         return ""
+
+
+# ─── Windows version detection ────────────────────────────────────────────────
+
+def get_windows_build() -> int:
+    """Return the Windows build number (e.g. 22000 for W11 21H2)."""
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+        build, _ = winreg.QueryValueEx(key, "CurrentBuildNumber")
+        winreg.CloseKey(key)
+        return int(build)
+    except Exception:
+        return 0
+
+
+def is_windows_11() -> bool:
+    """Windows 11 starts at build 22000."""
+    return get_windows_build() >= 22000
+
+
+# ─── Laptop / battery detection ──────────────────────────────────────────────
+
+def is_laptop() -> bool:
+    """Returns True if the system has a battery (i.e. is a laptop)."""
+    code, out = _powershell(
+        "(Get-WmiObject -Class Win32_Battery -ErrorAction SilentlyContinue | Measure-Object).Count"
+    )
+    try:
+        return int(out.strip()) > 0
+    except Exception:
+        return False
+
+
+# ─── Power plan management ────────────────────────────────────────────────────
+
+POWER_PLANS = {
+    "saver":     ("a1841308-3541-4fab-bc81-f71556f20b4a", "Ahorro de batería"),
+    "balanced":  ("381b4222-f694-41f0-9685-ff5bb260df2e", "Equilibrado"),
+    "high":      ("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "Alto rendimiento"),
+}
+
+
+def get_active_power_plan() -> str:
+    """Returns 'saver', 'balanced', or 'high'. Falls back to 'balanced'."""
+    code, out = _run(["powercfg", "/getactivescheme"])
+    out_lower = out.lower()
+    for plan_id, (guid, _) in POWER_PLANS.items():
+        if guid.lower() in out_lower:
+            return plan_id
+    return "balanced"
+
+
+def set_power_plan(plan_id: str) -> tuple:
+    """Activate one of the three Windows power plans."""
+    guid, name = POWER_PLANS.get(plan_id, POWER_PLANS["balanced"])
+    code, out = _run(["powercfg", "/setactive", guid])
+    return code == 0, name
+
+
+# ─── Tweak state readers ──────────────────────────────────────────────────────
+# Each function returns True if WinClean's restriction IS APPLIED (i.e. ON=applied=OFF visually)
+
+def _tweak_state_telemetry_reg() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Policies\Microsoft\Windows\DataCollection", "AllowTelemetry")
+    return val == 0
+
+
+def _tweak_state_cortana_search() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Policies\Microsoft\Windows\Windows Search", "AllowCortana")
+    return val == 0
+
+
+def _tweak_state_activity_history() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Policies\Microsoft\Windows\System", "EnableActivityFeed")
+    return val == 0
+
+
+def _tweak_state_advertising_id() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled")
+    return val == 0
+
+
+def _tweak_state_location_tracking() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Overrides\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}",
+                   "SensorPermissionState")
+    return val == 0
+
+
+def _tweak_state_feedback_freq() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Siuf\Rules", "NumberOfSIUFInPeriod")
+    return val == 0
+
+
+def _tweak_state_startup_sound() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI\BootAnimation",
+                   "DisableStartupSound")
+    return val == 1
+
+
+def _tweak_state_game_mode() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\GameBar", "AutoGameModeEnabled")
+    # game_mode ON means the restriction (enabling game mode) IS applied (idk how to fix this function btw)
+    return val == 1
+
+
+def _tweak_state_hardware_acceleration() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SYSTEM\CurrentControlSet\Control\GraphicsDrivers", "HwSchMode")
+    return val == 1
+
+
+def _tweak_state_visual_effects() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects", "VisualFXSetting")
+    return val == 2
+
+
+def _tweak_state_notifications() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications", "ToastEnabled")
+    return val == 0
+
+
+def _tweak_state_autoplay() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer", "NoDriveTypeAutoRun")
+    return val == 255
+
+
+def _tweak_state_error_reporting() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Microsoft\Windows\Windows Error Reporting", "Disabled")
+    return val == 1
+
+
+def _tweak_state_remote_assistance() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SYSTEM\CurrentControlSet\Control\Remote Assistance", "fAllowToGetHelp")
+    return val == 0
+
+
+def _tweak_state_hibernation() -> bool:
+    # Check if hiberfil.sys does NOT exist → restriction applied
+    import os
+    return not os.path.exists(r"C:\hiberfil.sys")
+
+
+def _tweak_state_news_interests() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Feeds", "ShellFeedsTaskbarViewMode")
+    return val == 2
+
+
+def _tweak_state_search_highlights() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled")
+    return val == 0
+
+
+def _tweak_state_timer_resolution() -> bool:
+    code, out = _run(["bcdedit", "/enum", "{current}"])
+    return "useplatformtick" in out.lower() and "yes" in out.lower()
+
+
+def _tweak_state_network_throttle() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile",
+                   "NetworkThrottlingIndex")
+    return val == 0xffffffff
+
+
+# ── Windows 11 tweak state readers ───────────────────────────────────────────
+
+def _tweak_state_w11_copilot_taskbar() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "ShowCopilotButton")
+    return val == 0
+
+
+def _tweak_state_w11_recall() -> bool:
+    val = _reg_get(winreg.HKEY_LOCAL_MACHINE,
+                   r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis")
+    return val == 1
+
+
+def _tweak_state_w11_ai_search() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled")
+    return val == 0
+
+
+def _tweak_state_w11_widgets() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "TaskbarDa")
+    return val == 0
+
+
+def _tweak_state_w11_snap_suggest() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "SnapAssist")
+    return val == 0
+
+
+def _tweak_state_w11_typing_insights() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Input\Settings", "IsVoiceTypingKeyEnabled")
+    return val == 0
+
+
+def _tweak_state_w11_personalized_ads() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled")
+    return val == 0
+
+
+def _tweak_state_w11_voice_typing() -> bool:
+    val = _reg_get(winreg.HKEY_CURRENT_USER,
+                   r"SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted")
+    return val == 0
+
+
+# Map tweak_id -> state reader function
+TWEAK_STATE_READERS = {
+    "telemetry_reg":       _tweak_state_telemetry_reg,
+    "cortana_search":      _tweak_state_cortana_search,
+    "activity_history":    _tweak_state_activity_history,
+    "advertising_id":      _tweak_state_advertising_id,
+    "location_tracking":   _tweak_state_location_tracking,
+    "feedback_freq":       _tweak_state_feedback_freq,
+    "startup_sound":       _tweak_state_startup_sound,
+    "game_mode":           _tweak_state_game_mode,
+    "hardware_acceleration": _tweak_state_hardware_acceleration,
+    "visual_effects":      _tweak_state_visual_effects,
+    "notifications":       _tweak_state_notifications,
+    "autoplay":            _tweak_state_autoplay,
+    "error_reporting":     _tweak_state_error_reporting,
+    "remote_assistance":   _tweak_state_remote_assistance,
+    "hibernation":         _tweak_state_hibernation,
+    "news_interests":      _tweak_state_news_interests,
+    "search_highlights":   _tweak_state_search_highlights,
+    "timer_resolution":    _tweak_state_timer_resolution,
+    "network_throttle":    _tweak_state_network_throttle,
+    # W11
+    "w11_copilot_taskbar":  _tweak_state_w11_copilot_taskbar,
+    "w11_recall":           _tweak_state_w11_recall,
+    "w11_ai_search":        _tweak_state_w11_ai_search,
+    "w11_widgets":          _tweak_state_w11_widgets,
+    "w11_snap_suggest":     _tweak_state_w11_snap_suggest,
+    "w11_typing_insights":  _tweak_state_w11_typing_insights,
+    "w11_personalized_ads": _tweak_state_w11_personalized_ads,
+    "w11_voice_typing":     _tweak_state_w11_voice_typing,
+}
+
+
+def read_tweak_state(tweak_id: str) -> bool:
+    """Return True if WinClean's restriction is currently applied for this tweak."""
+    fn = TWEAK_STATE_READERS.get(tweak_id)
+    if fn is None:
+        return False
+    try:
+        return bool(fn())
+    except Exception:
+        return False
+
+
+def read_all_tweak_states(tweak_ids: list) -> dict:
+    """Batch read. Returns {tweak_id: bool}"""
+    return {tid: read_tweak_state(tid) for tid in tweak_ids}
