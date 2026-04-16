@@ -110,7 +110,7 @@ winclean/
 
 ## Historial de cambios
 
-### v2.0
+### v2.1
 - **Fix crítico:** `AttributeError: '_tkinter.tkapp' object has no attribute '_tweak_cards'` — el diccionario `_tweak_cards` no se inicializaba en `__init__`, causando un crash al arrancar en Windows 11
 
 ### v1.4

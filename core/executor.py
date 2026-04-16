@@ -348,11 +348,19 @@ TWEAK_ACTIONS = {
         "revert": lambda: _reg_set(winreg.HKEY_CURRENT_USER,
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced", "ShowCopilotButton", 1),
     },
-    "w11_recall": {
-        "apply":  lambda: _reg_set(winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 1),
-        "revert": lambda: _reg_set(winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 0),
+    "w11_recall": {  # CORREGIDO: usa HKCU para no bloquear la API de capturas
+        "apply":  lambda: all([
+            _reg_set(winreg.HKEY_CURRENT_USER,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\AIDataAnalysis", "DisableAIDataAnalysis", 1),
+            _reg_set(winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 1),
+        ]),
+        "revert": lambda: all([
+            _reg_set(winreg.HKEY_CURRENT_USER,
+                r"SOFTWARE\Microsoft\Windows\CurrentVersion\AIDataAnalysis", "DisableAIDataAnalysis", 0),
+            _reg_set(winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 0),
+        ]),
     },
     "w11_ai_search": {
         "apply":  lambda: _reg_set(winreg.HKEY_CURRENT_USER,
