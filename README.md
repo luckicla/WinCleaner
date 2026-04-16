@@ -1,4 +1,4 @@
-# WinClean v2.0 — Optimizador Windows 10/11
+# WinClean v2.1 — Optimizador Windows 10/11
 
 > Limpia. Optimiza. Tú decides qué se queda.
 
