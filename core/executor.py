@@ -660,7 +660,7 @@ def _tweak_state_startup_sound() -> bool:
 
 def _tweak_state_game_mode() -> bool:
     val = _reg_get(winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\GameBar", "AutoGameModeEnabled")
-    # game_mode ON means the restriction (enabling game mode) IS applied (idk how to fix this function btw)
+    # game_mode ON means the restriction (enabling game mode) IS applied
     return val == 1
 
 

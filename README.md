@@ -1,63 +1,152 @@
-# WinClean v1.4 — Optimizador Windows 10 y 11
+# WinClean v1.4 — Optimizador Windows 10/11
 
-Herramienta para eliminar bloatware, desactivar servicios innecesarios y aplicar tweaks de privacidad/rendimiento en Windows 10 y 11.
+Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware, desactiva servicios innecesarios, aplica tweaks de privacidad y rendimiento, y en Windows 11 cuenta con funciones específicas para retirar toda la integración de IA del sistema.
+
+> ⚠️ Requiere permisos de administrador. Se solicitan automáticamente al iniciar.
+
+---
+
+## Características principales
+
+- **36 aplicaciones bloatware** detectables y eliminables (Teams, Cortana, Xbox, Candy Crush, apps Bing, etc.)
+- **27 servicios de Windows** configurables (desactivar, bloquear o restaurar)
+- **27 tweaks** de privacidad, rendimiento y gaming, con lectura del estado real del sistema antes de mostrarlos
+- **Detección automática de Windows 10 vs 11** — las secciones exclusivas de W11 solo aparecen en W11
+- **Perfiles predefinidos** (Gaming, Trabajo, Mínimo) y perfiles de usuario personalizables
+- **Modo bandeja del sistema** — se minimiza a la bandeja en lugar de cerrarse, con menú Abrir/Salir
+- **Inicio automático con perfil** — puede aplicar un perfil silenciosamente al arrancar Windows
+- **Selector de plan de energía** — Ahorro de batería / Equilibrado / Alto rendimiento (con detección de portátil)
+- **Límites de recursos por proceso** — control manual
+
+---
+
+## Tweaks disponibles
+
+### Privacidad
+- Telemetría de Windows
+- Cortana en búsquedas
+- Historial de Actividad
+- ID de Publicidad
+- Rastreo de Ubicación
+- Solicitudes de Feedback
+- Notificaciones del sistema
+- Informes de Error de Windows
+- Asistencia Remota
+- Noticias e Intereses (barra de tareas)
+- Búsquedas Destacadas
+
+### Rendimiento
+- Sonido de inicio de Windows
+- Efectos visuales
+- Reproducción Automática
+- Hibernación
+
+### Gaming
+- Modo Juego
+- GPU Scheduling (HAGS)
+- Resolución de Timer del Sistema
+- Throttling de Red para Juegos
+
+### Windows 11 — Anti-IA (exclusivos)
+- Botón Copilot en barra de tareas
+- Windows Recall
+- Búsqueda con IA mejorada
+- Panel de Widgets
+- Sugerencias de Snap Layout
+- Estadísticas de escritura (Typing Insights)
+- Experiencias personalizadas con IA
+- Escritura por voz
+
+---
+
+## Apps bloatware exclusivas de Windows 11
+
+- Microsoft Copilot
+- Clipchamp (Editor de vídeo con IA)
+- Paint con Cocreator IA
+- Dev Home
+- Outlook nuevo (con Copilot)
+- Vinculación con el Teléfono (Phone Link)
+
+---
+
+## Perfiles predefinidos
+
+| Perfil | Descripción |
+|---|---|
+| 🎮 Gaming | Máximo rendimiento. Desactiva servicios innecesarios, telemetría y optimiza para juegos |
+| 💼 Trabajo | Elimina bloatware y telemetría manteniendo estabilidad y funciones útiles |
+| 🧹 Mínimo | Solo elimina el bloatware más evidente. Cambios conservadores para cualquier usuario |
+
+Los perfiles de usuario se guardan en `%USERPROFILE%\.winclean\profiles\` como JSON y se pueden importar/exportar.
+
+---
 
 ## Requisitos
 
-- Windows 10/11 (x64)
-- Python 3.10+
+- Windows 10 u 11 (x64)
+- Python 3.10 o superior
 - Dependencias: `pip install pystray pillow`
 
-## Instalación
+---
+
+## Instalación y uso
 
 ```bat
 pip install pystray pillow
 python main.py
 ```
 
-## Uso
+O doble clic en `ejecutar.bat` (eleva UAC automáticamente).
 
-Ejecutar `main.py` o doble click en `ejecutar.bat`. Requiere permisos de administrador (se solicita automáticamente).
+### Modo bandeja (inicio silencioso)
 
-## Cambios v1.2
+```bat
+python main.py --tray
+```
 
-### Bugs corregidos
+Aplica el perfil de inicio guardado sin abrir la ventana y se queda en la bandeja del sistema.
 
-**TclError: bad window path name** (crash principal)
-- Causa: `var.trace_add("write", lambda *a: self._on_toggle())` disparaba el callback DESPUÉS de que los widgets eran destruidos durante un `_refresh_app_cards()` o `_refresh_service_cards()`.
-- Solución: Cada `ItemCard` y `ServiceCard` ahora almacena el ID del trace y lo elimina en el evento `<Destroy>`. Además, `_safe_set_bg` verifica `winfo_exists()` antes de tocar cualquier widget.
-
-**Scroll afectaba todos los tabs a la vez**
-- Causa: `canvas.bind_all("<MouseWheel>", ...)` registraba el handler globalmente, haciendo que el scroll moviese todos los canvas simultáneamente.
-- Solución: Cada canvas ahora usa `bind("<Enter>")` / `bind("<Leave>")` para activar/desactivar su propio handler de scroll solo cuando el ratón está sobre él.
-
-**Cerrar ventana cerraba la aplicación**
-- Solución: `protocol("WM_DELETE_WINDOW", self._on_close)` captura el cierre y hace `withdraw()` (oculta la ventana). Si `pystray` y `pillow` están instalados, crea un icono en la bandeja del sistema con menú "Abrir" / "Salir".
-
-## Cambios v1.4
-
-He añadido funciones exclusivas para Windows 11 para retirar todo el contenido posible relacionado con la IA. He arreglado errores de reconocimiento de servicios y apps. He mejorado el rendimiento de la aplicación reduciendo el consumo de recursos en segundo plano y eso, poco más.
-
-Tengo varias mejoras pensadas para las siguientes versiones. btw, el código pasa por una IA para optimizarse porque yo aún no sé hacerlo, y además lo ordena muchísimo mejor que yo, que soy una chusta xD
-
-### Anotaciones
-El código ha sido ordenado y reorganizado para su optimización por Claude, yo a día de hoy no tengo la habilidad para limpiar el código y organizarlo bien, así que prefiero que para que la gente que lea el repositorio, se le haga más sencillo aplicar cambios o usar el mismo como base para algún programa.
-
-El proyecto se empezó hace el 13/04/2026 a fecha de escribir esto el proyecto tiene 3 días de antiguedad y aún tiene mucho margen de mejora.
+---
 
 ## Arquitectura
 
 ```
 winclean/
-  main.py              — Punto de entrada (GUI o tray)
-  ejecutar.bat         — Lanzador con elevación UAC
+  main.py                — Punto de entrada (GUI o --tray)
+  ejecutar.bat           — Lanzador con elevación UAC
+  build.bat              — Script de compilación a .exe
+  WinClean.spec          — Configuración PyInstaller
+  version_info.txt       — Metadatos del EXE
   core/
-    data.py            — Listas de apps, servicios y tweaks
-    executor.py        — Ejecución real (PowerShell, sc.exe, registro)
-    profiles.py        — Carga/guarda perfiles JSON
+    data.py              — Listas de apps, servicios, tweaks y perfiles preset
+    executor.py          — Ejecución real (PowerShell, sc.exe, registro de Windows)
+    profiles.py          — Carga/guarda/importa/exporta perfiles JSON
+    resource_manager.py  — Límites de recursos por proceso
   ui/
-    app.py             — Ventana principal
-    widgets.py         — ItemCard, ServiceCard, StatusBar
-    styles.py          — Colores y fuentes
-    tray.py            — Modo bandeja (inicio silencioso con perfil)
+    app.py               — Ventana principal
+    widgets.py           — ItemCard, ServiceCard, TweakCard, ProcessResourceCard, StatusBar
+    styles.py            — Colores y fuentes
+    tray.py              — Modo bandeja (inicio silencioso con perfil)
 ```
+
+---
+
+## Historial de cambios
+
+### v1.4
+- Nuevas funciones exclusivas para Windows 11: eliminación de toda la integración de IA (Copilot, Recall, búsqueda IA, Widgets, Snap Layout, Typing Insights, experiencias personalizadas, escritura por voz)
+- Corrección de errores de reconocimiento de servicios y apps
+- Mejora del rendimiento en segundo plano (reducción de consumo de recursos)
+- Añadidos archivos de compilación a EXE standalone (`build.bat`, `WinClean.spec`, `EMPAQUETAR.md`)
+
+### v1.2
+- **Fix:** `TclError: bad window path name` — los callbacks de `trace_add` se disparaban tras destruir widgets. Solución: cada `ItemCard` y `ServiceCard` guarda el ID del trace y lo elimina en `<Destroy>`. `_safe_set_bg` verifica `winfo_exists()` antes de tocar widgets.
+- **Fix:** El scroll afectaba todos los tabs a la vez — `canvas.bind_all("<MouseWheel>")` registraba el handler globalmente. Solución: cada canvas usa `bind("<Enter>")` / `bind("<Leave>")` para activar su propio handler solo cuando el ratón está encima.
+- **Fix:** Cerrar la ventana cerraba la aplicación — ahora `WM_DELETE_WINDOW` hace `withdraw()` (oculta la ventana) y crea un icono en la bandeja con menú Abrir/Salir si pystray y Pillow están disponibles.
+
+---
+
+## Notas
+
+El código ha sido reorganizado y optimizado con ayuda de IA (Claude) para facilitar la lectura y contribuciones externas. El proyecto empezó el 13/04/2026 y tiene mucho margen de mejora — cualquier PR o sugerencia es bienvenida.
