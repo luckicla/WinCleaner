@@ -27,6 +27,16 @@ from core.executor import (
 )
 from ui.styles import apply_theme, COLORS, FONTS
 from ui.widgets import SectionHeader, ItemCard, ServiceCard, TweakCard, ProcessResourceCard, StatusBar
+
+# Servicios de IA de Windows 11 mostrados en la pestaña IA (con toggle real)
+AI_SERVICES = [
+    {"id": "ai_svc_AIXHelper",            "service": "AIXHelper",            "name": "AI Helper Service",          "description": "Proceso de soporte de IA, siempre activo en W11 24H2+",      "risk": "medium"},
+    {"id": "ai_svc_cbdhsvc",              "service": "cbdhsvc",              "name": "Portapapeles en la nube",    "description": "Sincronización del portapapeles + sugerencias IA",         "risk": "low"},
+    {"id": "ai_svc_wemsvc",               "service": "wemsvc",               "name": "Windows Experience Service", "description": "Recopila datos de uso para personalización IA",             "risk": "medium"},
+    {"id": "ai_svc_StorSvc",              "service": "StorSvc",              "name": "Storage Service (Recall)",   "description": "Gestiona las capturas de Recall en disco",                 "risk": "high"},
+    {"id": "ai_svc_wisvc",                "service": "wisvc",                "name": "Windows Insider Service",    "description": "Envía telemetría incluso sin ser Insider",                 "risk": "medium"},
+    {"id": "ai_svc_perceptionsimulation", "service": "perceptionsimulation", "name": "Perception Simulation",      "description": "IA para realidad mixta y cámara inteligente",              "risk": "low"},
+]
 from core import resource_manager as rm
 
 SVC_STATUS_DISPLAY = {
@@ -64,6 +74,8 @@ class WinCleanApp(tk.Tk):
         self.startup_var = tk.BooleanVar(value=False)
         self.startup_profile_var = tk.StringVar(value="")
         self.tweak_states = {}       # tweak_id -> bool (True = restriction applied)
+        self._tweak_cards = {}       # tweak_id -> TweakCard widget
+        self._ai_svc_card_frames = {}  # ai service card widgets
 
         # Resource manager state (per-process manual mode)
         self._resource_procs  = []
@@ -84,7 +96,7 @@ class WinCleanApp(tk.Tk):
     # ── Init ──────────────────────────────────────────────────────────
 
     def _build_check_vars(self):
-        for item in BLOATWARE_APPS + SERVICES + TWEAKS:
+        for item in BLOATWARE_APPS + SERVICES + TWEAKS + AI_SERVICES:
             self.check_vars[item["id"]] = tk.BooleanVar(value=False)
 
     def _center_window(self):
@@ -158,6 +170,10 @@ class WinCleanApp(tk.Tk):
         for name in svc_names:
             self.svc_status_cache[name] = get_service_status(name)
 
+        # Scan AI services (shown in IA tab)
+        for svc in AI_SERVICES:
+            self.svc_status_cache[svc["service"]] = get_service_status(svc["service"])
+
         # Read real state of all tweaks
         all_tweak_ids = [t["id"] for t in TWEAKS]
         self.tweak_states = read_all_tweak_states(all_tweak_ids)
@@ -170,6 +186,8 @@ class WinCleanApp(tk.Tk):
         self._refresh_app_cards()
         self._refresh_service_cards()
         self._refresh_tweak_states()
+        if self.win11:
+            self._refresh_ai_svc_cards()
 
         n_apps = sum(1 for a in BLOATWARE_APPS if is_app_installed(a["package"], self.installed_apps))
         n_svcs = sum(1 for s in SERVICES if self.svc_status_cache.get(s["service"]) != SVC_NOT_FOUND)
@@ -314,7 +332,8 @@ class WinCleanApp(tk.Tk):
         self.svcs_canvas, self.svcs_inner = self._make_scrollable(self.svcs_tab_frame)
         SectionHeader(self.svcs_inner, "Servicios de Windows",
                       "Solo se muestran los servicios presentes en tu sistema. "
-                      "Verde=En ejecucion  Amarillo=Detenido  Gris=Desactivado  Morado=Bloqueado").pack(
+                      "Marca los servicios que quieres DESACTIVAR y pulsa 'Aplicar configuración'. "
+                      "Estado actual:  Verde=En ejecución  Amarillo=Detenido  Gris=Desactivado  Morado=Bloqueado").pack(
             fill="x", padx=16, pady=(16, 4))
         self.svc_card_frames = {}
 
@@ -585,8 +604,9 @@ class WinCleanApp(tk.Tk):
         SectionHeader(
             inner,
             "🤖  Características de IA de Windows 11",
-            "Estas son las funciones de IA de W11 que más recursos consumen y menos utilidad aportan. "
-            "OFF = WinClean ha desactivado la característica. ON = activa (estado original de Microsoft)."
+            "Funciones y servicios de IA de W11. "
+            "Toggle ON/OFF: ON = WinClean ha desactivado la característica · OFF = activa (estado original de Microsoft). "
+            "Servicios: marca los que quieres desactivar y pulsa 'Aplicar configuración'."
         ).pack(fill="x", padx=16, pady=(16, 8))
 
         risk_colors = {"low": COLORS["success"], "medium": COLORS["warning"], "high": COLORS["danger"]}
@@ -691,40 +711,69 @@ class WinCleanApp(tk.Tk):
             self._tweak_cards[item["id"]] = card
 
         # ── Group 3: AI services consuming resources ──────────────────
-        SectionHeader(inner, "Servicios de IA que más consumen", "").pack(fill="x", padx=16, pady=(16, 4))
+        SectionHeader(inner, "Servicios de IA que más consumen",
+                      "Marca los que quieres DESACTIVAR y pulsa 'Aplicar configuración'. "
+                      "Estado actual:  Verde=En ejecución  Amarillo=Detenido  Gris=Desactivado  Morado=Bloqueado"
+                      ).pack(fill="x", padx=16, pady=(16, 4))
 
-        ai_svc_info = [
-            ("AIXHelper",             "AI Helper Service",          "Proceso de soporte de IA, siempre activo en W11 24H2+"),
-            ("cbdhsvc",               "Portapapeles en la nube",    "Sync del portapapeles + sugerencias IA"),
-            ("wemsvc",                "Windows Experience Service", "Recopila datos de uso para personalización IA"),
-            ("StorSvc",               "Storage Service (Recall)",   "Gestiona las capturas de Recall en disco"),
-            ("wisvc",                 "Windows Insider Service",    "Envía telemetría incluso sin ser Insider"),
-            ("perceptionsimulation",  "Perception Simulation",      "IA para realidad mixta y cámara inteligente"),
-        ]
+        # Store reference to inner so _refresh_ai_svc_cards can populate it
+        self._ai_svc_inner = inner
 
-        for svc_name, label, desc in ai_svc_info:
-            status = self.svc_status_cache.get(svc_name, SVC_NOT_FOUND)
+    def _refresh_ai_svc_cards(self):
+        """Rebuild AI service cards in the IA tab after a scan."""
+        if not hasattr(self, "_ai_svc_inner"):
+            return
+        for w in self._ai_svc_card_frames.values():
+            w.destroy()
+        self._ai_svc_card_frames.clear()
+
+        risk_colors = {"low": COLORS["success"], "medium": COLORS["warning"], "high": COLORS["danger"]}
+        found = 0
+        for svc in AI_SERVICES:
+            status = self.svc_status_cache.get(svc["service"], SVC_NOT_FOUND)
             if status == SVC_NOT_FOUND:
-                status_text, status_color = "NO ENCONTRADO", COLORS["border"]
-            else:
-                status_text, status_color = SVC_STATUS_DISPLAY.get(status, ("?", COLORS["border"]))
+                continue
+            found += 1
+            var = self.check_vars[svc["id"]]
+            card = ServiceCard(
+                self._ai_svc_inner,
+                name=svc["name"], description=svc["description"],
+                var=var, risk=svc["risk"], risk_color=risk_colors[svc["risk"]],
+                status=status,
+                on_block=lambda s=svc: self._block_ai_svc_action(s),
+                on_unblock=lambda s=svc: self._unblock_ai_svc_action(s),
+            )
+            card.pack(fill="x", padx=16, pady=2)
+            self._ai_svc_card_frames[svc["id"]] = card
 
-            row = tk.Frame(inner, bg=COLORS["surface"], pady=0)
-            row.pack(fill="x", padx=16, pady=2)
-            ri = tk.Frame(row, bg=COLORS["surface"], padx=12, pady=7)
-            ri.pack(fill="both", expand=True)
+        if found == 0:
+            lbl = tk.Label(self._ai_svc_inner,
+                           text="No se encontraron servicios de IA en este sistema.",
+                           font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"])
+            lbl.pack(padx=16, pady=8)
+            self._ai_svc_card_frames["_empty"] = lbl
 
-            left = tk.Frame(ri, bg=COLORS["surface"])
-            left.pack(side="left", fill="both", expand=True)
-            tk.Label(left, text=label, font=FONTS["body"],
-                     bg=COLORS["surface"], fg=COLORS["text"], anchor="w").pack(anchor="w")
-            tk.Label(left, text=f"{svc_name}  —  {desc}", font=FONTS["small"],
-                     bg=COLORS["surface"], fg=COLORS["text_muted"], anchor="w").pack(anchor="w")
+    def _block_ai_svc_action(self, svc: dict):
+        if not messagebox.askyesno("Bloquear servicio de IA",
+                                   f"¿Bloquear '{svc['name']}'?\n"
+                                   f"Se eliminan los trigger-start para que Windows no pueda activarlo automáticamente."):
+            return
+        ok, msg = block_service(svc["service"])
+        if ok:
+            self.svc_status_cache[svc["service"]] = SVC_BLOCKED
+            self.status_text.set(f"{svc['name']} bloqueado")
+        else:
+            messagebox.showerror("Error", msg)
+        self._refresh_ai_svc_cards()
 
-            tk.Label(ri, text=status_text,
-                     font=("Segoe UI", 8, "bold"),
-                     bg=COLORS["bg"], fg=status_color,
-                     padx=6, pady=3).pack(side="right")
+    def _unblock_ai_svc_action(self, svc: dict):
+        ok, msg = unblock_service(svc["service"])
+        if ok:
+            self.svc_status_cache[svc["service"]] = SVC_RUNNING
+            self.status_text.set(f"{svc['name']} reactivado")
+        else:
+            messagebox.showerror("Error", msg)
+        self._refresh_ai_svc_cards()
 
     # ── Resources tab ──────────────────────────────────────────────────
 
@@ -1030,7 +1079,7 @@ class WinCleanApp(tk.Tk):
 
     def _do_revert_all(self):
         errors = []
-        for svc in SERVICES:
+        for svc in SERVICES + AI_SERVICES:
             ok, msg = enable_service(svc["service"])
             if not ok:
                 errors.append(f"{svc['name']}: {msg}")
@@ -1047,7 +1096,7 @@ class WinCleanApp(tk.Tk):
 
     def _apply_selected(self):
         sel_apps   = [a for a in BLOATWARE_APPS if self.check_vars[a["id"]].get() and a["id"] in self.app_card_frames]
-        sel_svcs   = [s for s in SERVICES if self.check_vars[s["id"]].get()
+        sel_svcs   = [s for s in SERVICES + AI_SERVICES if self.check_vars[s["id"]].get()
                       and self.svc_status_cache.get(s["service"]) not in (SVC_NOT_FOUND,)]
         sel_tweaks = [t for t in TWEAKS if self.check_vars[t["id"]].get()]
 

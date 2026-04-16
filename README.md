@@ -1,72 +1,48 @@
-# WinClean v1.4 — Optimizador Windows 10/11
+# WinClean v2.0 — Optimizador Windows 10/11
 
-Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware, desactiva servicios innecesarios, aplica tweaks de privacidad y rendimiento, y en Windows 11 cuenta con funciones específicas para retirar toda la integración de IA del sistema.
+> Limpia. Optimiza. Tú decides qué se queda.
+
+Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware, desactiva servicios innecesarios, aplica tweaks de privacidad y rendimiento, y en Windows 11 cuenta con un módulo específico para retirar toda la integración de IA del sistema.
 
 > ⚠️ Requiere permisos de administrador. Se solicitan automáticamente al iniciar.
 
 ---
 
-## Características principales
+## ¿Qué hace WinClean?
 
-- **36 aplicaciones bloatware** detectables y eliminables (Teams, Cortana, Xbox, Candy Crush, apps Bing, etc.)
-- **27 servicios de Windows** configurables (desactivar, bloquear o restaurar)
-- **27 tweaks** de privacidad, rendimiento y gaming, con lectura del estado real del sistema antes de mostrarlos
-- **Detección automática de Windows 10 vs 11** — las secciones exclusivas de W11 solo aparecen en W11
-- **Perfiles predefinidos** (Gaming, Trabajo, Mínimo) y perfiles de usuario personalizables
-- **Modo bandeja del sistema** — se minimiza a la bandeja en lugar de cerrarse, con menú Abrir/Salir
+Windows viene con decenas de aplicaciones, servicios y configuraciones que nunca pediste y que consumen recursos, recopilan datos y llenan tu escritorio de ruido. WinClean te da el control: ves exactamente qué hay, qué está activo, y puedes desactivarlo o eliminarlo con un clic — con indicación del nivel de riesgo de cada acción.
+
+No hay cajas negras. Todo lo que hace la herramienta es ejecutar comandos de PowerShell o modificaciones de registro estándar, los mismos que harías a mano.
+
+---
+
+## Características
+
+- **36 aplicaciones bloatware** detectables y eliminables (Teams, Cortana, Xbox, Candy Crush, apps Bing, Copilot, Clipchamp, etc.)
+- **27 servicios de Windows** configurables: desactivar, bloquear o restaurar con un clic
+- **27 tweaks** de privacidad, rendimiento y gaming — con lectura del estado real del sistema antes de mostrarse
+- **Detección automática de Windows 10 vs 11** — las secciones exclusivas de W11 solo aparecen si corresponde
+- **Perfiles predefinidos** (Gaming, Trabajo, Mínimo) y perfiles de usuario personalizables en JSON
+- **Modo bandeja del sistema** — se minimiza a la bandeja en lugar de cerrarse
 - **Inicio automático con perfil** — puede aplicar un perfil silenciosamente al arrancar Windows
-- **Selector de plan de energía** — Ahorro de batería / Equilibrado / Alto rendimiento (con detección de portátil)
-- **Límites de recursos por proceso** — control manual
+- **Selector de plan de energía** con detección de portátil
+- **Límites de recursos por proceso** — control manual de CPU/memoria por aplicación
 
 ---
 
 ## Tweaks disponibles
 
 ### Privacidad
-- Telemetría de Windows
-- Cortana en búsquedas
-- Historial de Actividad
-- ID de Publicidad
-- Rastreo de Ubicación
-- Solicitudes de Feedback
-- Notificaciones del sistema
-- Informes de Error de Windows
-- Asistencia Remota
-- Noticias e Intereses (barra de tareas)
-- Búsquedas Destacadas
+Telemetría · Cortana · Historial de Actividad · ID de Publicidad · Rastreo de Ubicación · Solicitudes de Feedback · Notificaciones del sistema · Informes de Error · Asistencia Remota · Noticias e Intereses · Búsquedas Destacadas
 
 ### Rendimiento
-- Sonido de inicio de Windows
-- Efectos visuales
-- Reproducción Automática
-- Hibernación
+Sonido de inicio · Efectos visuales · Reproducción Automática · Hibernación
 
 ### Gaming
-- Modo Juego
-- GPU Scheduling (HAGS)
-- Resolución de Timer del Sistema
-- Throttling de Red para Juegos
+Modo Juego · GPU Scheduling (HAGS) · Resolución de Timer del Sistema · Throttling de Red
 
-### Windows 11 — Anti-IA (exclusivos)
-- Botón Copilot en barra de tareas
-- Windows Recall
-- Búsqueda con IA mejorada
-- Panel de Widgets
-- Sugerencias de Snap Layout
-- Estadísticas de escritura (Typing Insights)
-- Experiencias personalizadas con IA
-- Escritura por voz
-
----
-
-## Apps bloatware exclusivas de Windows 11
-
-- Microsoft Copilot
-- Clipchamp (Editor de vídeo con IA)
-- Paint con Cocreator IA
-- Dev Home
-- Outlook nuevo (con Copilot)
-- Vinculación con el Teléfono (Phone Link)
+### Windows 11 — Anti-IA *(exclusivos W11)*
+Botón Copilot · Windows Recall · Búsqueda con IA · Panel de Widgets · Snap Layout · Typing Insights · Experiencias personalizadas · Escritura por voz
 
 ---
 
@@ -86,7 +62,7 @@ Los perfiles de usuario se guardan en `%USERPROFILE%\.winclean\profiles\` como J
 
 - Windows 10 u 11 (x64)
 - Python 3.10 o superior
-- Dependencias: `pip install pystray pillow`
+- `pip install pystray pillow`
 
 ---
 
@@ -134,19 +110,22 @@ winclean/
 
 ## Historial de cambios
 
+### v2.0
+- **Fix crítico:** `AttributeError: '_tkinter.tkapp' object has no attribute '_tweak_cards'` — el diccionario `_tweak_cards` no se inicializaba en `__init__`, causando un crash al arrancar en Windows 11
+
 ### v1.4
 - Nuevas funciones exclusivas para Windows 11: eliminación de toda la integración de IA (Copilot, Recall, búsqueda IA, Widgets, Snap Layout, Typing Insights, experiencias personalizadas, escritura por voz)
 - Corrección de errores de reconocimiento de servicios y apps
-- Mejora del rendimiento en segundo plano (reducción de consumo de recursos)
+- Mejora del rendimiento en segundo plano
 - Añadidos archivos de compilación a EXE standalone (`build.bat`, `WinClean.spec`, `EMPAQUETAR.md`)
 
 ### v1.2
-- **Fix:** `TclError: bad window path name` — los callbacks de `trace_add` se disparaban tras destruir widgets. Solución: cada `ItemCard` y `ServiceCard` guarda el ID del trace y lo elimina en `<Destroy>`. `_safe_set_bg` verifica `winfo_exists()` antes de tocar widgets.
-- **Fix:** El scroll afectaba todos los tabs a la vez — `canvas.bind_all("<MouseWheel>")` registraba el handler globalmente. Solución: cada canvas usa `bind("<Enter>")` / `bind("<Leave>")` para activar su propio handler solo cuando el ratón está encima.
-- **Fix:** Cerrar la ventana cerraba la aplicación — ahora `WM_DELETE_WINDOW` hace `withdraw()` (oculta la ventana) y crea un icono en la bandeja con menú Abrir/Salir si pystray y Pillow están disponibles.
+- **Fix:** `TclError: bad window path name` — los callbacks de `trace_add` se disparaban tras destruir widgets
+- **Fix:** El scroll afectaba todos los tabs a la vez — cada canvas usa `bind("<Enter>")` / `bind("<Leave>")` para activar su handler solo cuando el ratón está encima
+- **Fix:** Cerrar la ventana cerraba la aplicación — ahora `WM_DELETE_WINDOW` hace `withdraw()` y crea icono en bandeja
 
 ---
 
 ## Notas
 
-El código ha sido reorganizado y optimizado con ayuda de IA (Claude) para facilitar la lectura y contribuciones externas. El proyecto empezó el 13/04/2026 y tiene mucho margen de mejora — cualquier PR o sugerencia es bienvenida.
+Proyecto iniciado el 13/04/2026. El código ha sido reorganizado y optimizado con ayuda de IA (Claude). Cualquier PR o sugerencia es bienvenida.
