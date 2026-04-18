@@ -331,6 +331,7 @@ SERVICES = [
     },
     {
         "id": "wsearch",
+        "alert": "warning",
         "name": "Windows Search",
         "service": "WSearch",
         "description": "Indexa archivos para búsqueda rápida. Consume CPU/disco en segundo plano",
@@ -340,6 +341,7 @@ SERVICES = [
     },
     {
         "id": "wuauserv",
+        "alert": "danger",
         "name": "Windows Update",
         "service": "wuauserv",
         "description": "Servicio de actualizaciones automáticas",
@@ -349,6 +351,7 @@ SERVICES = [
     },
     {
         "id": "bits",
+        "alert": "warning",
         "name": "BITS (Transferencias en 2º plano)",
         "service": "BITS",
         "description": "Descarga actualizaciones en segundo plano",
@@ -394,6 +397,7 @@ SERVICES = [
     },
     {
         "id": "wbiosrvc",
+        "alert": "warning",
         "name": "Biometría de Windows",
         "service": "WbioSrvc",
         "description": "Gestiona lectores de huella dactilar y reconocimiento facial",
@@ -535,6 +539,7 @@ SERVICES = [
     },
     {
         "id": "w11_storsvc",
+        "alert": "warning",
         "name": "Storage Service / Recall (StorSvc)",
         "service": "StorSvc",
         "description": "Gestiona Recall y almacenamiento de capturas de IA en W11",
@@ -668,6 +673,7 @@ TWEAKS = [
     },
     {
         "id": "visual_effects",
+        "alert": "warning",
         "name": "Efectos visuales",
         "category": "performance",
         "description": "Animaciones y transparencias de Windows (OFF = mínimos, más rendimiento)",
@@ -686,6 +692,7 @@ TWEAKS = [
     },
     {
         "id": "hibernation",
+        "alert": "warning",
         "name": "Hibernación",
         "category": "performance",
         "description": "Archivo hiberfil.sys en disco (varios GB). OFF = eliminado, libera espacio",
@@ -705,6 +712,7 @@ TWEAKS = [
     },
     {
         "id": "hardware_acceleration",
+        "alert": "warning",
         "name": "GPU Scheduling (HAGS)",
         "category": "gaming",
         "description": "Planificación de GPU por hardware. En GPUs antiguas puede generar stuttering",
@@ -714,6 +722,7 @@ TWEAKS = [
     },
     {
         "id": "timer_resolution",
+        "alert": "warning",
         "name": "Resolución de Timer del Sistema",
         "category": "gaming",
         "description": "Timer de alta resolución para menor latencia en juegos (OFF = desactivado)",
@@ -743,6 +752,7 @@ TWEAKS = [
     },
     {
         "id": "w11_recall",
+        "alert": "danger",
         "name": "Windows Recall",
         "category": "privacy",
         "description": "Recall guarda capturas de pantalla periódicas para búsqueda con IA. Serio riesgo de privacidad",

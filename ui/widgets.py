@@ -75,7 +75,13 @@ class ItemCard(tk.Frame):
     """Checkbox card for apps and tweaks."""
 
     def __init__(self, parent, name: str, description: str,
-                 var: tk.BooleanVar, risk: str, risk_color: str, **kwargs):
+                 var: tk.BooleanVar, risk: str, risk_color: str,
+                 alert: str = None, **kwargs):
+        """
+        alert: None | "warning" | "danger"
+          "warning" -> yellow ⚠️ badge (takes time or needs restart)
+          "danger"  -> red 🔴 badge (can break system functionality)
+        """
         super().__init__(parent, bg=COLORS["surface"], **kwargs)
         self.var = var
 
@@ -93,10 +99,24 @@ class ItemCard(tk.Frame):
         tk.Label(inner, text=description, font=FONTS["small"],
                  bg=COLORS["surface"], fg=COLORS["text_muted"], anchor="w").grid(row=1, column=1, sticky="w")
 
-        tk.Label(inner, text=RISK_LABELS.get(risk, risk.upper()),
+        right = tk.Frame(inner, bg=COLORS["surface"])
+        right.grid(row=0, column=2, rowspan=2, padx=(8, 0), sticky="e")
+
+        tk.Label(right, text=RISK_LABELS.get(risk, risk.upper()),
                  font=("Segoe UI", 7, "bold"),
                  bg=risk_color, fg="#000000" if risk == "low" else "#ffffff",
-                 padx=5, pady=1).grid(row=0, column=2, padx=(8, 0), sticky="e")
+                 padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+
+        if alert == "warning":
+            tk.Label(right, text="⚠️ Requiere tiempo o reinicio",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#b87800", fg="#fffde7",
+                     padx=5, pady=1).pack(anchor="e")
+        elif alert == "danger":
+            tk.Label(right, text="🔴 Puede dejar funciones inusables",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#8b0000", fg="#ffffff",
+                     padx=5, pady=1).pack(anchor="e")
 
         inner.columnconfigure(1, weight=1)
 
@@ -154,7 +174,7 @@ class ServiceCard(tk.Frame):
     def __init__(self, parent, name: str, description: str,
                  var: tk.BooleanVar, risk: str, risk_color: str,
                  status: str,
-                 on_block=None, on_unblock=None, **kwargs):
+                 on_block=None, on_unblock=None, alert: str = None, **kwargs):
         super().__init__(parent, bg=COLORS["surface"], **kwargs)
         self.var = var
         self.status = status
@@ -188,6 +208,17 @@ class ServiceCard(tk.Frame):
                  font=("Segoe UI", 7, "bold"),
                  bg=risk_color, fg="#000000" if risk == "low" else "#ffffff",
                  padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+
+        if alert == "warning":
+            tk.Label(right, text="⚠️ Requiere tiempo o reinicio",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#b87800", fg="#fffde7",
+                     padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+        elif alert == "danger":
+            tk.Label(right, text="🔴 Puede dejar funciones inusables",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#8b0000", fg="#ffffff",
+                     padx=5, pady=1).pack(anchor="e", pady=(0, 2))
 
         if status == "disabled" and on_block:
             tk.Button(right, text="Bloquear triggers",
@@ -250,7 +281,8 @@ class TweakCard(tk.Frame):
 
     def __init__(self, parent, tweak_id: str, name: str, description: str,
                  risk: str, risk_color: str,
-                 on_enable=None, on_disable=None, initial_state: bool = False, **kwargs):
+                 on_enable=None, on_disable=None, initial_state: bool = False,
+                 alert: str = None, **kwargs):
         super().__init__(parent, bg=COLORS["surface"], **kwargs)
         self.tweak_id   = tweak_id
         self.on_enable  = on_enable
@@ -268,14 +300,27 @@ class TweakCard(tk.Frame):
         tk.Label(text_f, text=description, font=FONTS["small"],
                  bg=COLORS["surface"], fg=COLORS["text_muted"], anchor="w").pack(anchor="w")
 
-        # Right: risk badge + toggle
+        # Right: risk badge + alert + toggle
         right = tk.Frame(inner, bg=COLORS["surface"])
         right.pack(side="right", padx=(8, 0))
 
         tk.Label(right, text=RISK_LABELS.get(risk, risk.upper()),
                  font=("Segoe UI", 7, "bold"),
                  bg=risk_color, fg="#000000" if risk == "low" else "#ffffff",
-                 padx=5, pady=1).pack(anchor="e", pady=(0, 6))
+                 padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+
+        if alert == "warning":
+            tk.Label(right, text="⚠️ Requiere tiempo o reinicio",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#b87800", fg="#fffde7",
+                     padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+        elif alert == "danger":
+            tk.Label(right, text="🔴 Puede dejar funciones inusables",
+                     font=("Segoe UI", 7, "bold"),
+                     bg="#8b0000", fg="#ffffff",
+                     padx=5, pady=1).pack(anchor="e", pady=(0, 2))
+
+        tk.Frame(right, height=4, bg=COLORS["surface"]).pack()
 
         self._toggle_btn = tk.Button(
             right, text="○  OFF",
@@ -346,11 +391,13 @@ class ProcessResourceCard(tk.Frame):
     def __init__(self, parent, proc: dict,
                  on_apply=None,
                  on_reset=None,
+                 on_kill=None,
                  **kwargs):
         super().__init__(parent, bg=COLORS["surface"], **kwargs)
         self.proc       = proc
         self.on_apply   = on_apply
         self.on_reset   = on_reset
+        self.on_kill    = on_kill
 
         ncores = max(1, __import__("os").cpu_count() or 4)
 
@@ -416,6 +463,15 @@ class ProcessResourceCard(tk.Frame):
             font=FONTS["small"], relief="flat", cursor="hand2",
             padx=8, pady=4,
             activebackground=COLORS["btn_hover"],
+        ).pack(fill="x", pady=(0, 4))
+
+        tk.Button(
+            btn_f, text="🔴 MATAR PROCESO",
+            command=self._do_kill,
+            bg="#8b0000", fg="#ffffff",
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=4,
+            activebackground="#c0392b",
         ).pack(fill="x")
 
     def _build_slider(self, parent, label, var, from_, to, resolution, unit, hint):
@@ -459,6 +515,10 @@ class ProcessResourceCard(tk.Frame):
     def _do_reset(self):
         if self.on_reset:
             self.on_reset(self.proc["pid"], self.proc["name"])
+
+    def _do_kill(self):
+        if self.on_kill:
+            self.on_kill(self.proc["pid"], self.proc["name"])
 
 
 class StatusBar(tk.Frame):

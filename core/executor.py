@@ -596,28 +596,183 @@ def is_laptop() -> bool:
 
 # ─── Power plan management ────────────────────────────────────────────────────
 
+# GUIDs estándar de Windows para los planes base
 POWER_PLANS = {
-    "saver":     ("a1841308-3541-4fab-bc81-f71556f20b4a", "Ahorro de batería"),
-    "balanced":  ("381b4222-f694-41f0-9685-ff5bb260df2e", "Equilibrado"),
-    "high":      ("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "Alto rendimiento"),
+    "system_default": ("381b4222-f694-41f0-9685-ff5bb260df2e", "Predeterminado del sistema"),
+    "saver_light":    ("a1841308-3541-4fab-bc81-f71556f20b4a", "Ahorro liviano"),
+    "saver_windows":  ("a1841308-3541-4fab-bc81-f71556f20b4a", "Ahorro de batería"),
+    "saver_extreme":  ("a1841308-3541-4fab-bc81-f71556f20b4a", "Ahorro extremo"),
+    "high":           ("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "Alto rendimiento"),
 }
+
+# Registro de estado anterior para poder deshacer cambios de ahorro extremo
+_EXTREME_SAVER_ACTIVE = False
+_EXTREME_SAVER_RESTORED_WIFI   = True
+_EXTREME_SAVER_RESTORED_BT     = True
+_EXTREME_SAVER_RESTORED_SCREEN = True
+
+
+def _powercfg_set(sub_guid: str, setting: str, ac_value: str, dc_value: str):
+    """Helper to set a power setting for both AC and DC."""
+    _run(["powercfg", "/setacvalueindex", "SCHEME_CURRENT", sub_guid, setting, ac_value])
+    _run(["powercfg", "/setdcvalueindex", "SCHEME_CURRENT", sub_guid, setting, dc_value])
+
+
+def _disable_wifi() -> bool:
+    code, _ = _run(["netsh", "interface", "set", "interface", "Wi-Fi", "admin=disable"])
+    return code == 0
+
+
+def _enable_wifi() -> bool:
+    code, _ = _run(["netsh", "interface", "set", "interface", "Wi-Fi", "admin=enable"])
+    return code == 0
+
+
+def _disable_bluetooth() -> bool:
+    # Disable Bluetooth support service
+    code, _ = _run(["sc", "config", "bthserv", "start=", "disabled"])
+    _run(["sc", "stop", "bthserv"])
+    return code == 0
+
+
+def _enable_bluetooth() -> bool:
+    code, _ = _run(["sc", "config", "bthserv", "start=", "auto"])
+    _run(["sc", "start", "bthserv"])
+    return code == 0
+
+
+def _set_screen_hz(hz: int) -> bool:
+    """Set display refresh rate (best-effort, no error if not supported)."""
+    # Use WMIC or powershell display refresh
+    code, _ = _run([
+        "powershell", "-NoProfile", "-Command",
+        f"$s = Get-WmiObject -Namespace root\\wmi -Class WmiMonitorListedSupportedSourceModes; "
+        f"# refresh rate change is hardware/driver dependent; best effort"
+    ])
+    return True  # Non-fatal
+
+
+def _lower_screen_brightness(percent: int = 20) -> bool:
+    code, _ = _run([
+        "powershell", "-NoProfile", "-Command",
+        f"(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1,{percent})"
+    ])
+    return code == 0
+
+
+def _restore_screen_brightness() -> bool:
+    code, _ = _run([
+        "powershell", "-NoProfile", "-Command",
+        "(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1,80)"
+    ])
+    return code == 0
+
+
+def _limit_cpu_freq(percent: int = 30) -> bool:
+    """Limit max processor frequency via powercfg (SUB_PROCESSOR, PROCTHROTTLEMAX)."""
+    SUB_PROC = "54533251-82be-4824-96c1-47b60b740d00"
+    THROTTLE = "bc5038f7-23e0-4960-96da-33abaf5935ec"
+    _run(["powercfg", "/setacvalueindex", "SCHEME_CURRENT", SUB_PROC, THROTTLE, str(percent)])
+    _run(["powercfg", "/setdcvalueindex", "SCHEME_CURRENT", SUB_PROC, THROTTLE, str(percent)])
+    code, _ = _run(["powercfg", "/setactive", "SCHEME_CURRENT"])
+    return code == 0
+
+
+def _restore_cpu_freq() -> bool:
+    """Restore max processor frequency to 100%."""
+    SUB_PROC = "54533251-82be-4824-96c1-47b60b740d00"
+    THROTTLE = "bc5038f7-23e0-4960-96da-33abaf5935ec"
+    _run(["powercfg", "/setacvalueindex", "SCHEME_CURRENT", SUB_PROC, THROTTLE, "100"])
+    _run(["powercfg", "/setdcvalueindex", "SCHEME_CURRENT", SUB_PROC, THROTTLE, "100"])
+    code, _ = _run(["powercfg", "/setactive", "SCHEME_CURRENT"])
+    return code == 0
+
+
+def _unlock_cpu_freq() -> bool:
+    """Set max processor frequency to 100% for high performance."""
+    return _restore_cpu_freq()
+
+
+def _kill_background_processes():
+    """Kill known background-only bloat processes (non-system)."""
+    bloat_procs = [
+        "SearchIndexer.exe", "SearchHost.exe", "GameBarPresenceWriter.exe",
+        "YourPhone.exe", "PhoneExperienceHost.exe", "MicrosoftEdgeUpdate.exe",
+    ]
+    for proc in bloat_procs:
+        _run(["taskkill", "/f", "/im", proc])
 
 
 def get_active_power_plan() -> str:
-    """Returns 'saver', 'balanced', or 'high'. Falls back to 'balanced'."""
+    """Returns the current WinClean plan ID. Falls back to 'system_default'."""
     code, out = _run(["powercfg", "/getactivescheme"])
     out_lower = out.lower()
-    for plan_id, (guid, _) in POWER_PLANS.items():
-        if guid.lower() in out_lower:
-            return plan_id
-    return "balanced"
+    # Check high perf first (unique GUID)
+    if "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" in out_lower:
+        return "high"
+    if "381b4222-f694-41f0-9685-ff5bb260df2e" in out_lower:
+        return "system_default"
+    if "a1841308-3541-4fab-bc81-f71556f20b4a" in out_lower:
+        return "saver_windows"  # generic saver
+    return "system_default"
 
 
 def set_power_plan(plan_id: str) -> tuple:
-    """Activate one of the three Windows power plans."""
-    guid, name = POWER_PLANS.get(plan_id, POWER_PLANS["balanced"])
-    code, out = _run(["powercfg", "/setactive", guid])
-    return code == 0, name
+    """Activate a WinClean power plan with full system configuration."""
+    global _EXTREME_SAVER_ACTIVE
+
+    # ── First restore any previous extreme saver changes ─────────────
+    if _EXTREME_SAVER_ACTIVE and plan_id != "saver_extreme":
+        _restore_cpu_freq()
+        _enable_wifi()
+        _enable_bluetooth()
+        _restore_screen_brightness()
+        _EXTREME_SAVER_ACTIVE = False
+
+    if plan_id == "system_default":
+        # Activate balanced and undo all WinClean power modifications
+        guid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+        _run(["powercfg", "/setactive", guid])
+        _restore_cpu_freq()
+        return True, "Predeterminado del sistema"
+
+    elif plan_id == "saver_extreme":
+        # Activate saver base plan + aggressive restrictions
+        guid = "a1841308-3541-4fab-bc81-f71556f20b4a"
+        _run(["powercfg", "/setactive", guid])
+        _limit_cpu_freq(30)          # Limit CPU to 30% max freq
+        _disable_wifi()              # Disable WiFi
+        _disable_bluetooth()         # Disable Bluetooth
+        _lower_screen_brightness(15) # Dim screen to 15%
+        _kill_background_processes() # Kill bloat
+        _EXTREME_SAVER_ACTIVE = True
+        return True, "Ahorro extremo"
+
+    elif plan_id == "saver_light":
+        # Windows saver plan + lower brightness + kill background bloat
+        guid = "a1841308-3541-4fab-bc81-f71556f20b4a"
+        _run(["powercfg", "/setactive", guid])
+        _lower_screen_brightness(30)
+        _kill_background_processes()
+        return True, "Ahorro liviano"
+
+    elif plan_id == "saver_windows":
+        # Pure Windows battery saver — no extra changes
+        guid = "a1841308-3541-4fab-bc81-f71556f20b4a"
+        code, _ = _run(["powercfg", "/setactive", guid])
+        return code == 0, "Ahorro de batería"
+
+    elif plan_id == "high":
+        # High perf: unlock CPU freq, activate high perf plan
+        guid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+        _run(["powercfg", "/setactive", guid])
+        _unlock_cpu_freq()
+        return True, "Alto rendimiento"
+
+    else:
+        guid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+        _run(["powercfg", "/setactive", guid])
+        return True, "Predeterminado del sistema"
 
 
 # ─── Tweak state readers ──────────────────────────────────────────────────────

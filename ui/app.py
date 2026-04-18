@@ -12,6 +12,7 @@ from tkinter import ttk, messagebox, filedialog
 import threading
 import sys
 import os
+import json
 
 from core.data import BLOATWARE_APPS, SERVICES, TWEAKS
 from core.profiles import list_profiles, load_profile, save_profile, delete_profile, import_profile, export_profile
@@ -27,6 +28,7 @@ from core.executor import (
 )
 from ui.styles import apply_theme, COLORS, FONTS
 from ui.widgets import SectionHeader, ItemCard, ServiceCard, TweakCard, ProcessResourceCard, StatusBar
+from ui.cleaner_window import CleanerWindow
 
 # Servicios de IA de Windows 11 mostrados en la pestaña IA (con toggle real)
 AI_SERVICES = [
@@ -188,6 +190,7 @@ class WinCleanApp(tk.Tk):
         self._refresh_tweak_states()
         if self.win11:
             self._refresh_ai_svc_cards()
+            self._restore_ai_states_from_disk()
 
         n_apps = sum(1 for a in BLOATWARE_APPS if is_app_installed(a["package"], self.installed_apps))
         n_svcs = sum(1 for s in SERVICES if self.svc_status_cache.get(s["service"]) != SVC_NOT_FOUND)
@@ -221,6 +224,15 @@ class WinCleanApp(tk.Tk):
             activebackground=COLORS["surface"], activeforeground=COLORS["accent"],
             selectcolor=COLORS["bg"], font=FONTS["small"], cursor="hand2",
         ).pack(side="right", pady=4)
+
+        tk.Button(
+            sf, text="🧹 Limpiar disco",
+            command=self._open_cleaner,
+            bg=COLORS["btn"], fg=COLORS["accent"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=10, pady=4, bd=0,
+            activebackground=COLORS["btn_hover"], activeforeground=COLORS["accent"],
+        ).pack(side="right", padx=(0, 12), pady=4)
 
         main = tk.Frame(self, bg=COLORS["bg"])
         main.pack(fill="both", expand=True)
@@ -307,15 +319,17 @@ class WinCleanApp(tk.Tk):
         nb = ttk.Notebook(parent, style="WC.TNotebook")
         nb.pack(fill="both", expand=True, padx=12, pady=12)
 
-        self.apps_tab_frame = tk.Frame(nb, bg=COLORS["bg"])
-        self.svcs_tab_frame = tk.Frame(nb, bg=COLORS["bg"])
-        tweaks_tab          = tk.Frame(nb, bg=COLORS["bg"])
-        self.res_tab_frame  = tk.Frame(nb, bg=COLORS["bg"])
+        self.apps_tab_frame  = tk.Frame(nb, bg=COLORS["bg"])
+        self.svcs_tab_frame  = tk.Frame(nb, bg=COLORS["bg"])
+        tweaks_tab           = tk.Frame(nb, bg=COLORS["bg"])
+        self.res_tab_frame   = tk.Frame(nb, bg=COLORS["bg"])
+        self.locks_tab_frame = tk.Frame(nb, bg=COLORS["bg"])
 
-        nb.add(self.apps_tab_frame, text="Apps & Bloatware")
-        nb.add(self.svcs_tab_frame, text="Servicios")
-        nb.add(tweaks_tab,          text="Tweaks & Privacidad")
-        nb.add(self.res_tab_frame,  text="⚡ Recursos")
+        nb.add(self.apps_tab_frame,  text="Apps & Bloatware")
+        nb.add(self.svcs_tab_frame,  text="Servicios")
+        nb.add(tweaks_tab,           text="Tweaks & Privacidad")
+        nb.add(self.res_tab_frame,   text="⚡ Recursos")
+        nb.add(self.locks_tab_frame, text="🔒 Bloqueos de Función")
 
         # W11-exclusive AI tab
         if self.win11:
@@ -339,6 +353,7 @@ class WinCleanApp(tk.Tk):
 
         self._build_tweaks_tab_content(tweaks_tab)
         self._build_resources_tab(self.res_tab_frame)
+        self._build_locks_tab(self.locks_tab_frame)
 
         af = tk.Frame(parent, bg=COLORS["bg"])
         af.pack(fill="x", padx=12, pady=(0, 12))
@@ -388,7 +403,8 @@ class WinCleanApp(tk.Tk):
             var = self.check_vars[app["id"]]
             card = ItemCard(
                 self.apps_inner, app["name"], app["description"],
-                var=var, risk=app["risk"], risk_color=risk_colors[app["risk"]]
+                var=var, risk=app["risk"], risk_color=risk_colors[app["risk"]],
+                alert=app.get("alert"),
             )
             card.pack(fill="x", padx=16, pady=2)
             self.app_card_frames[app["id"]] = card
@@ -407,7 +423,8 @@ class WinCleanApp(tk.Tk):
                     var = self.check_vars[app["id"]]
                     card = ItemCard(
                         self.apps_inner, app["name"], app["description"],
-                        var=var, risk=app["risk"], risk_color=risk_colors[app["risk"]]
+                        var=var, risk=app["risk"], risk_color=risk_colors[app["risk"]],
+                        alert=app.get("alert"),
                     )
                     card.pack(fill="x", padx=16, pady=2)
                     self.app_card_frames[app["id"]] = card
@@ -443,6 +460,7 @@ class WinCleanApp(tk.Tk):
                 status=status,
                 on_block=lambda s=svc: self._block_service_action(s),
                 on_unblock=lambda s=svc: self._unblock_service_action(s),
+                alert=svc.get("alert"),
             )
             card.pack(fill="x", padx=16, pady=2)
             self.svc_card_frames[svc["id"]] = card
@@ -470,6 +488,7 @@ class WinCleanApp(tk.Tk):
                         status=status,
                         on_block=lambda s=svc: self._block_service_action(s),
                         on_unblock=lambda s=svc: self._unblock_service_action(s),
+                        alert=svc.get("alert"),
                     )
                     card.pack(fill="x", padx=16, pady=2)
                     self.svc_card_frames[svc["id"]] = card
@@ -481,6 +500,54 @@ class WinCleanApp(tk.Tk):
             lbl.pack(padx=16, pady=20)
             self.svc_card_frames["_empty"] = lbl
 
+
+    # ── AI state persistence ──────────────────────────────────────────
+
+    def _get_ai_state_path(self) -> str:
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ai_states.json")
+
+    def _save_ai_states(self):
+        """Persist all AI tab tweak toggle states to disk."""
+        ai_ids = [item["id"] for item in self._get_all_ai_items()]
+        states = {}
+        for tid in ai_ids:
+            card = self._tweak_cards.get(tid)
+            if card:
+                states[tid] = card._active
+        try:
+            path = self._get_ai_state_path()
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(states, f)
+        except Exception:
+            pass
+
+    def _load_ai_states(self) -> dict:
+        """Load persisted AI toggle states."""
+        try:
+            path = self._get_ai_state_path()
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {}
+
+    def _get_all_ai_items(self) -> list:
+        return [
+            {"id": "w11_recall"}, {"id": "w11_ai_search"}, {"id": "w11_typing_insights"},
+            {"id": "w11_personalized_ads"}, {"id": "w11_voice_typing"},
+            {"id": "w11_copilot_taskbar"}, {"id": "w11_widgets"}, {"id": "w11_snap_suggest"},
+        ]
+
+    def _restore_ai_states_from_disk(self):
+        """After scan, override AI tweak states with persisted user choices."""
+        saved = self._load_ai_states()
+        if not saved:
+            return
+        for tid, active in saved.items():
+            card = self._tweak_cards.get(tid)
+            if card:
+                card.set_active(active)
     def _block_service_action(self, svc: dict):
         if not messagebox.askyesno("Bloquear servicio",
                                    f"Bloquear '{svc['name']}'?\n\n"
@@ -543,6 +610,7 @@ class WinCleanApp(tk.Tk):
                     on_enable=self._on_tweak_enable,
                     on_disable=self._on_tweak_disable,
                     initial_state=initial,
+                    alert=tweak.get("alert"),
                 )
                 card.pack(fill="x", padx=16, pady=2)
                 self._tweak_cards[tweak["id"]] = card
@@ -566,6 +634,7 @@ class WinCleanApp(tk.Tk):
                         on_enable=self._on_tweak_enable,
                         on_disable=self._on_tweak_disable,
                         initial_state=initial,
+                        alert=tweak.get("alert"),
                     )
                     card.pack(fill="x", padx=16, pady=2)
                     self._tweak_cards[tweak["id"]] = card
@@ -584,6 +653,7 @@ class WinCleanApp(tk.Tk):
             self.after(0, lambda: self.status_text.set(
                 f"✅ {name} — restricción aplicada" if ok else f"Error: {msg[:60]}"
             ))
+            self.after(100, self._save_ai_states)
         threading.Thread(target=do, daemon=True).start()
 
     def _on_tweak_disable(self, tweak_id: str):
@@ -594,6 +664,7 @@ class WinCleanApp(tk.Tk):
             self.after(0, lambda: self.status_text.set(
                 f"✅ {name} — restaurado a original" if ok else f"Error: {msg[:60]}"
             ))
+            self.after(100, self._save_ai_states)
         threading.Thread(target=do, daemon=True).start()
 
     # ── AI tab (W11 only) ──────────────────────────────────────────────
@@ -796,38 +867,83 @@ class WinCleanApp(tk.Tk):
         refresh_btn.pack(side="right")
 
         # ── Power profiles bar ─────────────────────────────────────
-        power_bar = tk.Frame(parent, bg=COLORS["bg"], pady=8, padx=16)
-        power_bar.pack(fill="x")
+        power_frame = tk.Frame(parent, bg=COLORS["bg"], pady=6, padx=16)
+        power_frame.pack(fill="x")
 
-        tk.Label(power_bar, text="Perfil de energía:", font=FONTS["small"],
-                 bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(side="left", padx=(0, 10))
+        tk.Label(power_frame, text="⚡ Perfil de energía:", font=FONTS["small"],
+                 bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(side="left", padx=(0, 8))
 
-        self._power_var = tk.StringVar(value="balanced")
-        plan_labels = []
+        self._power_var = tk.StringVar(value="system_default")
+        self._power_btns = {}
+
+        # Predeterminado del sistema
+        btn_sys = tk.Button(
+            power_frame, text="🖥️  Predeterminado del sistema",
+            command=lambda: self._set_power_plan("system_default"),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=4, activebackground=COLORS["btn_hover"],
+        )
+        btn_sys.pack(side="left", padx=3)
+        self._power_btns["system_default"] = btn_sys
+
+        # Subgrupo ahorro
+        saver_outer = tk.Frame(power_frame, bg=COLORS["bg"])
+        saver_outer.pack(side="left", padx=3)
+        tk.Label(saver_outer, text="🔋 Ahorro:", font=FONTS["small"],
+                 bg=COLORS["bg"], fg=COLORS["text_muted"]).pack(side="left", padx=(0, 2))
 
         if self.is_laptop:
-            plan_labels.append(("saver",    "🔋 Ahorro de batería"))
-        plan_labels.append(("balanced", "⚖  Equilibrado"))
-        plan_labels.append(("high",     "🚀 Alto rendimiento"))
-
-        self._power_btns = {}
-        for plan_id, plan_name in plan_labels:
-            btn = tk.Button(
-                power_bar, text=plan_name,
-                command=lambda pid=plan_id: self._set_power_plan(pid),
+            btn_sw = tk.Button(
+                saver_outer, text="Batería (Windows)",
+                command=lambda: self._set_power_plan("saver_windows"),
                 bg=COLORS["btn"], fg=COLORS["text_muted"],
                 font=FONTS["small"], relief="flat", cursor="hand2",
-                padx=10, pady=4,
-                activebackground=COLORS["btn_hover"],
+                padx=6, pady=4, activebackground=COLORS["btn_hover"],
             )
-            btn.pack(side="left", padx=4)
-            self._power_btns[plan_id] = btn
+            btn_sw.pack(side="left", padx=2)
+            self._power_btns["saver_windows"] = btn_sw
 
-        if not self.is_laptop:
-            tk.Label(power_bar, text="(portátil no detectado — ahorro de batería no disponible)",
-                     font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["border"]).pack(side="left", padx=8)
+        btn_sl = tk.Button(
+            saver_outer, text="🌿 Liviano",
+            command=lambda: self._set_power_plan("saver_light"),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=6, pady=4, activebackground=COLORS["btn_hover"],
+        )
+        btn_sl.pack(side="left", padx=2)
+        self._power_btns["saver_light"] = btn_sl
 
-        # Read current plan and highlight
+        btn_se = tk.Button(
+            saver_outer, text="⚡ Extremo",
+            command=lambda: self._set_power_plan("saver_extreme"),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=6, pady=4, activebackground=COLORS["btn_hover"],
+        )
+        btn_se.pack(side="left", padx=2)
+        self._power_btns["saver_extreme"] = btn_se
+
+        # Alto rendimiento (con aviso en portátil)
+        high_wrap = tk.Frame(power_frame, bg=COLORS["bg"])
+        high_wrap.pack(side="left", padx=3)
+        btn_high = tk.Button(
+            high_wrap, text="🚀 Alto rendimiento",
+            command=lambda: self._set_power_plan("high"),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=4, activebackground=COLORS["btn_hover"],
+        )
+        btn_high.pack(side="top")
+        self._power_btns["high"] = btn_high
+        if self.is_laptop:
+            tk.Label(
+                high_wrap,
+                text="⚠️ Consume batería considerablemente",
+                font=("Segoe UI", 7), bg=COLORS["bg"], fg="#f5a623",
+            ).pack(side="top")
+
+        # Leer plan actual y resaltar
         self.after(300, self._refresh_power_btn_states)
 
         # ── Info bar ───────────────────────────────────────────────
@@ -855,7 +971,10 @@ class WinCleanApp(tk.Tk):
     def _refresh_power_btn_states(self):
         active = get_active_power_plan()
         for plan_id, btn in self._power_btns.items():
-            if plan_id == active:
+            is_active = (plan_id == active) or (
+                plan_id == "saver_windows" and active in ("saver_extreme", "saver_light")
+            )
+            if is_active:
                 btn.config(bg=COLORS["accent"], fg="#000000",
                            activebackground=COLORS["accent_hover"])
             else:
@@ -895,6 +1014,7 @@ class WinCleanApp(tk.Tk):
                 proc=proc,
                 on_apply=self._on_resource_apply,
                 on_reset=self._on_resource_reset,
+                on_kill=self._on_resource_kill,
             )
             card.pack(fill="x", padx=16, pady=2)
             self._resource_cards[proc["name"]] = card
@@ -918,6 +1038,535 @@ class WinCleanApp(tk.Tk):
             rm.reset_limits(pid)
             self.after(0, lambda: self.status_text.set(f"✅ {name} restablecido"))
         threading.Thread(target=do, daemon=True).start()
+
+    def _on_resource_kill(self, pid, name):
+        from tkinter import messagebox
+        msg = ("Terminar FORZOSAMENTE el proceso '" + name + "' (PID " + str(pid) + ")?"
+               " Cualquier trabajo sin guardar se perdera.")
+        if not messagebox.askyesno("Matar proceso", msg, icon="warning"):
+            return
+        self.status_text.set(f"Matando proceso {name}...")
+        def do():
+            import subprocess
+            try:
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                self.after(0, lambda: self.status_text.set(f"✅ Proceso {name} terminado"))
+                self.after(500, self._scan_resources)
+            except Exception as e:
+                self.after(0, lambda: self.status_text.set(f"Error al matar {name}: {e}"))
+        threading.Thread(target=do, daemon=True).start()
+
+    # ── Locks tab ─────────────────────────────────────────────────────
+
+    # Definition of all function locks
+    _LOCK_ITEMS = [
+        {
+            "id":      "lock_rdp",
+            "name":    "Acceso Remoto (RDP)",
+            "desc":    "Desactiva el servicio de Escritorio Remoto y cierra el puerto 3389. "
+                       "Impide que alguien controle la pantalla del PC desde la red.",
+            "svc":     "TermService",
+            "port":    3389,
+            "reg_key": r"HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server",
+            "reg_val": "fDenyTSConnections",
+            "fw_rule": "WinClean_Block_RDP",
+        },
+        {
+            "id":    "lock_remote_assist",
+            "name":  "Asistencia Remota",
+            "desc":  "Desactiva la Asistencia Remota de Windows (MSRA). "
+                     "Evita que otro usuario reciba o solicite control del equipo.",
+            "svc":   None,
+            "port":  None,
+            "reg_key": r"HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance",
+            "reg_val": "fAllowToGetHelp",
+        },
+        {
+            "id":    "lock_winrm",
+            "name":  "WinRM (PowerShell remoto)",
+            "desc":  "Desactiva el servicio Windows Remote Management. "
+                     "Bloquea la ejecución remota de comandos PowerShell/WMI.",
+            "svc":   "WinRM",
+            "port":  5985,
+            "fw_rule": "WinClean_Block_WinRM",
+        },
+        {
+            "id":    "lock_vnc_port",
+            "name":  "Puerto VNC (5900)",
+            "desc":  "Añade regla de Firewall de Windows para bloquear el puerto TCP 5900. "
+                     "Impide conexiones de herramientas VNC (RealVNC, TightVNC, etc.).",
+            "svc":   None,
+            "port":  5900,
+            "fw_rule": "WinClean_Block_VNC",
+        },
+        {
+            "id":    "lock_net_share",
+            "name":  "Uso Compartido de Red (SMB)",
+            "desc":  "Detiene y desactiva LanmanServer (el servidor SMB). "
+                     "Ningún otro equipo de la red podrá acceder a carpetas compartidas de este PC.",
+            "svc":   "LanmanServer",
+            "port":  445,
+            "fw_rule": "WinClean_Block_SMB",
+        },
+        {
+            "id":    "lock_screen_capture",
+            "name":  "Captura de pantalla remota (DXGI)",
+            "desc":  "Aplica una restricción de registro que impide la duplicación DXGI en sesiones remotas. "
+                     "Herramientas de captura/espejo de pantalla no funcionarán desde fuera.",
+            "svc":   None,
+            "port":  None,
+            "reg_key": r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
+            "reg_val": "fDisableScreenCapture",
+        },
+    ]
+
+    def _build_locks_tab(self, parent):
+        """Build the BLOQUEOS DE FUNCIÓN tab."""
+        self._lock_states  = {}   # lock_id -> bool (True = restriction ON)
+        self._lock_btns    = {}   # lock_id -> toggle Button
+        self._lock_ind     = {}   # lock_id -> indicator Label (colored dot)
+        self._lock_status  = {}   # lock_id -> status Label
+
+        # ── Header ──────────────────────────────────────────────────
+        hdr = tk.Frame(parent, bg=COLORS["surface"], pady=10, padx=16)
+        hdr.pack(fill="x")
+
+        tk.Label(hdr, text="🔒  BLOQUEOS DE FUNCIÓN", font=FONTS["label"],
+                 bg=COLORS["surface"], fg=COLORS["accent"]).pack(side="left")
+
+        rescan_btn = tk.Button(
+            hdr, text="↺  Detectar red",
+            command=self._locks_detect_network,
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=3, activebackground=COLORS["btn_hover"],
+        )
+        rescan_btn.pack(side="right")
+
+        # ── LAN alert banner ────────────────────────────────────────
+        self._lan_banner_frame = tk.Frame(parent, bg=COLORS["bg"], pady=6, padx=16)
+        self._lan_banner_frame.pack(fill="x")
+        self._lan_alert_lbl = tk.Label(
+            self._lan_banner_frame,
+            text="⏳  Detectando red local...",
+            font=FONTS["body"],
+            bg=COLORS["bg"], fg=COLORS["text_muted"],
+            anchor="w",
+        )
+        self._lan_alert_lbl.pack(fill="x")
+
+        # ── Subtitle ─────────────────────────────────────────────────
+        sub = tk.Frame(parent, bg=COLORS["bg"], pady=2, padx=16)
+        sub.pack(fill="x")
+        tk.Label(
+            sub,
+            text="ON = restricción activa (WinClean bloquea el acceso)  ·  OFF = comportamiento original de Windows sin restricciones",
+            font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+            anchor="w",
+        ).pack(fill="x")
+
+        # ── Scrollable lock cards ────────────────────────────────────
+        _, inner = self._make_scrollable(parent)
+
+        for item in self._LOCK_ITEMS:
+            self._lock_states[item["id"]] = False
+            self._build_lock_card(inner, item)
+
+        # Start async network detection + state read
+        self.after(400, self._locks_detect_network)
+        self.after(500, self._locks_read_all_states)
+
+    def _build_lock_card(self, parent, item: dict):
+        """Build a single lock card with ON/OFF toggle."""
+        card = tk.Frame(parent, bg=COLORS["surface"], pady=10, padx=14)
+        card.pack(fill="x", padx=16, pady=3)
+
+        # Left: indicator dot
+        dot = tk.Label(card, text="●", font=("Segoe UI", 14),
+                       bg=COLORS["surface"], fg=COLORS["text_muted"])
+        dot.pack(side="left", padx=(0, 10))
+        self._lock_ind[item["id"]] = dot
+
+        # Middle: name + description + status
+        mid = tk.Frame(card, bg=COLORS["surface"])
+        mid.pack(side="left", fill="both", expand=True)
+
+        tk.Label(mid, text=item["name"], font=FONTS["body"],
+                 bg=COLORS["surface"], fg=COLORS["text"], anchor="w").pack(anchor="w")
+        tk.Label(mid, text=item["desc"], font=FONTS["small"],
+                 bg=COLORS["surface"], fg=COLORS["text_muted"],
+                 wraplength=600, justify="left", anchor="w").pack(anchor="w")
+        status_lbl = tk.Label(mid, text="Leyendo estado...", font=FONTS["small"],
+                               bg=COLORS["surface"], fg=COLORS["text_muted"], anchor="w")
+        status_lbl.pack(anchor="w", pady=(2, 0))
+        self._lock_status[item["id"]] = status_lbl
+
+        # Right: ON/OFF button
+        btn = tk.Button(
+            card,
+            text="OFF",
+            width=6,
+            command=lambda i=item: self._toggle_lock(i),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["button"], relief="flat", cursor="hand2",
+            pady=6, activebackground=COLORS["btn_hover"],
+        )
+        btn.pack(side="right", padx=(10, 0))
+        self._lock_btns[item["id"]] = btn
+
+    def _update_lock_card_ui(self, lock_id: str, active: bool):
+        """Refresh the card visual state for a lock."""
+        self._lock_states[lock_id] = active
+        btn = self._lock_btns.get(lock_id)
+        dot = self._lock_ind.get(lock_id)
+        lbl = self._lock_status.get(lock_id)
+        if active:
+            if btn: btn.config(text="ON",  bg="#2a5c2a", fg="#55dd55",
+                               activebackground="#336633")
+            if dot: dot.config(fg="#55dd55")  # green
+            if lbl: lbl.config(text="🔒 Restricción ACTIVA — acceso bloqueado", fg="#55dd55")
+        else:
+            if btn: btn.config(text="OFF", bg=COLORS["btn"], fg=COLORS["text_muted"],
+                               activebackground=COLORS["btn_hover"])
+            if dot: dot.config(fg=COLORS["text_muted"])
+            if lbl: lbl.config(text="🔓 Sin restricción — comportamiento original de Windows",
+                               fg=COLORS["text_muted"])
+
+    # ── Network detection ──────────────────────────────────────────
+
+    def _locks_detect_network(self):
+        """Async: detect LAN + open ports and update banner."""
+        def do():
+            result = self._do_detect_network()
+            self.after(0, lambda: self._apply_network_banner(result))
+        threading.Thread(target=do, daemon=True).start()
+
+    def _do_detect_network(self) -> dict:
+        """Return dict with: has_lan, lan_ip, rdp_open, risk_level."""
+        import subprocess, socket, re
+        has_lan = False
+        lan_ip  = None
+        rdp_open = False
+
+        # Detect private IP via ipconfig
+        try:
+            out = subprocess.check_output("ipconfig", capture_output=False,
+                                          text=True, timeout=6,
+                                          creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0)
+            for line in out.splitlines():
+                m = re.search(r"IPv4.*?:\s*([\d.]+)", line)
+                if m:
+                    ip = m.group(1)
+                    if (ip.startswith("192.168.") or ip.startswith("10.") or
+                            re.match(r"172\.(1[6-9]|2\d|3[01])\.", ip)):
+                        has_lan = True
+                        lan_ip  = ip
+                        break
+        except Exception:
+            pass
+
+        # Try socket if ipconfig failed
+        if not has_lan:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                s.close()
+                if (ip.startswith("192.168.") or ip.startswith("10.") or
+                        re.match(r"172\.(1[6-9]|2\d|3[01])\.", ip)):
+                    has_lan = True
+                    lan_ip  = ip
+            except Exception:
+                pass
+
+        # Check if RDP port is listening locally
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                rdp_open = (s.connect_ex(("127.0.0.1", 3389)) == 0)
+        except Exception:
+            pass
+
+        if not has_lan:
+            risk = "none"
+        elif rdp_open:
+            risk = "high"
+        else:
+            risk = "medium"
+
+        return {"has_lan": has_lan, "lan_ip": lan_ip, "rdp_open": rdp_open, "risk": risk}
+
+    def _apply_network_banner(self, result: dict):
+        """Update the LAN alert banner with colored text."""
+        risk = result["risk"]
+        ip   = result.get("lan_ip", "")
+        rdp  = result.get("rdp_open", False)
+
+        if risk == "none":
+            color = COLORS["success"]   # green
+            icon  = "🟢"
+            msg   = "🟢  Sin red LAN detectada — riesgo de acceso remoto BAJO. El equipo no parece estar conectado a una red local."
+        elif risk == "medium":
+            color = COLORS["warning"]   # yellow/orange
+            icon  = "🟡"
+            msg   = f"🟡  Red LAN detectada (IP: {ip}) — riesgo MEDIO. El equipo está en una red local. Activa los bloqueos que necesites."
+        else:
+            color = COLORS["danger"]    # red
+            icon  = "🔴"
+            msg   = (f"🔴  ALERTA: Red LAN detectada (IP: {ip}) y el puerto RDP 3389 está ABIERTO — riesgo ALTO. "
+                     f"Este equipo puede ser controlado remotamente. Se recomienda activar el bloqueo RDP inmediatamente.")
+
+        self._lan_alert_lbl.config(text=msg, fg=color)
+
+    # ── Read current lock states ────────────────────────────────────
+
+    def _locks_read_all_states(self):
+        """Read actual system state for all locks asynchronously."""
+        def do():
+            for item in self._LOCK_ITEMS:
+                active = self._read_lock_state(item)
+                lid = item["id"]
+                self.after(0, lambda i=lid, a=active: self._update_lock_card_ui(i, a))
+        threading.Thread(target=do, daemon=True).start()
+
+    def _read_lock_state(self, item: dict) -> bool:
+        """Return True if the restriction for this lock is currently active."""
+        import subprocess
+        lid = item["id"]
+
+        try:
+            if lid == "lock_rdp":
+                result = subprocess.run(
+                    ["reg", "query",
+                     r"HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server",
+                     "/v", "fDenyTSConnections"],
+                    capture_output=True, text=True,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                return "0x1" in result.stdout
+
+            elif lid == "lock_remote_assist":
+                result = subprocess.run(
+                    ["reg", "query",
+                     r"HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance",
+                     "/v", "fAllowToGetHelp"],
+                    capture_output=True, text=True,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                return "0x0" in result.stdout
+
+            elif lid == "lock_winrm":
+                result = subprocess.run(
+                    ["sc", "query", "WinRM"],
+                    capture_output=True, text=True,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                return "STOPPED" in result.stdout or "DISABLED" in result.stdout
+
+            elif lid in ("lock_vnc_port", "lock_net_share", "lock_screen_capture"):
+                rule = item.get("fw_rule", "")
+                if rule:
+                    result = subprocess.run(
+                        ["netsh", "advfirewall", "firewall", "show", "rule", f"name={rule}"],
+                        capture_output=True, text=True,
+                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                    )
+                    return "No rules match" not in result.stdout and rule in result.stdout
+
+                if lid == "lock_net_share":
+                    result = subprocess.run(
+                        ["sc", "query", "LanmanServer"],
+                        capture_output=True, text=True,
+                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                    )
+                    return "STOPPED" in result.stdout or "DISABLED" in result.stdout
+
+                if lid == "lock_screen_capture":
+                    result = subprocess.run(
+                        ["reg", "query",
+                         r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
+                         "/v", "fDisableScreenCapture"],
+                        capture_output=True, text=True,
+                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                    )
+                    return "0x1" in result.stdout
+
+        except Exception:
+            pass
+        return False
+
+    # ── Toggle a lock ───────────────────────────────────────────────
+
+    def _toggle_lock(self, item: dict):
+        """Toggle a lock ON (apply restriction) or OFF (remove restriction)."""
+        lid     = item["id"]
+        current = self._lock_states.get(lid, False)
+        new_state = not current
+
+        verb = "Activando" if new_state else "Desactivando"
+        self.status_text.set(f"{verb} bloqueo: {item['name']}...")
+
+        # Disable button while working
+        btn = self._lock_btns.get(lid)
+        if btn:
+            btn.config(state="disabled")
+
+        def do():
+            if new_state:
+                ok, msg = self._apply_lock(item)
+            else:
+                ok, msg = self._remove_lock(item)
+
+            def finish():
+                if btn:
+                    btn.config(state="normal")
+                if ok:
+                    self._update_lock_card_ui(lid, new_state)
+                    state_str = "activado 🔒" if new_state else "desactivado 🔓"
+                    self.status_text.set(f"✅ Bloqueo {item['name']} {state_str}")
+                else:
+                    self._update_lock_card_ui(lid, current)  # revert visual
+                    self.status_text.set(f"❌ Error: {msg[:80]}")
+                    messagebox.showerror("Error de bloqueo",
+                                         f"No se pudo {'activar' if new_state else 'desactivar'} "
+                                         f"'{item['name']}':\n\n{msg}\n\n"
+                                         "Comprueba que WinClean se ejecuta como Administrador.")
+            self.after(0, finish)
+
+        threading.Thread(target=do, daemon=True).start()
+
+    def _apply_lock(self, item: dict) -> tuple:
+        """Apply (enable) the restriction for a lock item. Returns (ok, msg)."""
+        import subprocess
+        lid = item["id"]
+        cf  = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
+        try:
+            if lid == "lock_rdp":
+                subprocess.run(["reg", "add",
+                    r"HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server",
+                    "/v", "fDenyTSConnections", "/t", "REG_DWORD", "/d", "1", "/f"],
+                    check=True, capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "stop", "TermService"], capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "config", "TermService", "start=", "disabled"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_RDP", "protocol=TCP", "dir=in",
+                    "localport=3389", "action=block"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_remote_assist":
+                subprocess.run(["reg", "add",
+                    r"HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance",
+                    "/v", "fAllowToGetHelp", "/t", "REG_DWORD", "/d", "0", "/f"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_winrm":
+                subprocess.run(["sc", "stop", "WinRM"], capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "config", "WinRM", "start=", "disabled"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_WinRM", "protocol=TCP", "dir=in",
+                    "localport=5985", "action=block"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_vnc_port":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_VNC", "protocol=TCP", "dir=in",
+                    "localport=5900", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_net_share":
+                subprocess.run(["sc", "stop", "LanmanServer"], capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "config", "LanmanServer", "start=", "disabled"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_SMB", "protocol=TCP", "dir=in",
+                    "localport=445", "action=block"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_screen_capture":
+                subprocess.run(["reg", "add",
+                    r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
+                    "/v", "fDisableScreenCapture", "/t", "REG_DWORD", "/d", "1", "/f"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr.decode(errors="replace") if e.stderr else str(e)
+        except Exception as e:
+            return False, str(e)
+
+        return False, "Acción desconocida"
+
+    def _remove_lock(self, item: dict) -> tuple:
+        """Remove (disable) the restriction for a lock item. Returns (ok, msg)."""
+        import subprocess
+        lid = item["id"]
+        cf  = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
+        try:
+            if lid == "lock_rdp":
+                subprocess.run(["reg", "add",
+                    r"HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server",
+                    "/v", "fDenyTSConnections", "/t", "REG_DWORD", "/d", "0", "/f"],
+                    check=True, capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "config", "TermService", "start=", "auto"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "start", "TermService"], capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_RDP"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_remote_assist":
+                subprocess.run(["reg", "add",
+                    r"HKLM\SYSTEM\CurrentControlSet\Control\Remote Assistance",
+                    "/v", "fAllowToGetHelp", "/t", "REG_DWORD", "/d", "1", "/f"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_winrm":
+                subprocess.run(["sc", "config", "WinRM", "start=", "manual"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_WinRM"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_vnc_port":
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_VNC"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_net_share":
+                subprocess.run(["sc", "config", "LanmanServer", "start=", "auto"],
+                               capture_output=True, creationflags=cf)
+                subprocess.run(["sc", "start", "LanmanServer"], capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_SMB"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_screen_capture":
+                subprocess.run(["reg", "delete",
+                    r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
+                    "/v", "fDisableScreenCapture", "/f"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+        except subprocess.CalledProcessError as e:
+            return False, e.stderr.decode(errors="replace") if e.stderr else str(e)
+        except Exception as e:
+            return False, str(e)
+
+        return False, "Acción desconocida"
 
     # ── W11 helpers ───────────────────────────────────────────────────
 
@@ -1161,6 +1810,12 @@ class WinCleanApp(tk.Tk):
             self._refresh_service_cards()
 
         self.after(0, finish)
+
+    # ── Cleaner window ─────────────────────────────────────────────────
+
+    def _open_cleaner(self):
+        win = CleanerWindow(self)
+        win.focus_force()
 
     # ── Startup toggle ─────────────────────────────────────────────────
 
