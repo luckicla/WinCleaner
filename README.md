@@ -117,10 +117,10 @@ winclean/
 - **Añadido** 3 modos de energía nuevos: 
 · Ahorro liviano: Menos brillo y mata bloat process
 · Ahorro Extremo: 
-Limita la CPU al 30% de Frecuencia de Reloj
-Quita Bluetooth y Wifi
-Reduce el brillo al 15%
-Mata procesos inútiles
+- Limita la CPU al 30% de Frecuencia de Reloj
+- Quita Bluetooth y Wifi
+- Reduce el brillo al 15%
+- Mata procesos inútiles
 - Alto rendimiento mejorado: 
 · Desbloquea la frequiencia del procesador (como si estuviese conectado a la corriente)
 
