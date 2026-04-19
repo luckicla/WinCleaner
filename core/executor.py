@@ -990,3 +990,68 @@ def read_tweak_state(tweak_id: str) -> bool:
 def read_all_tweak_states(tweak_ids: list) -> dict:
     """Batch read. Returns {tweak_id: bool}"""
     return {tid: read_tweak_state(tid) for tid in tweak_ids}
+
+
+# ─── Startup Task Management (Scheduled Task / SYSTEM) ───────────────────────
+#
+# En lugar de una clave Run del registro (que no tiene privilegios admin),
+# usamos una Tarea Programada con /RL HIGHEST para que WinClean arranque
+# con permisos de administrador sin mostrar el prompt de UAC.
+#
+# La tarea se llama "WinCleanStartup" y ejecuta:
+#   <install_dir>\WinClean.exe --tray
+
+_TASK_NAME = "WinCleanStartup"
+
+
+def _get_exe_path() -> str:
+    """Devuelve la ruta del ejecutable actual (funciona tanto con PyInstaller como con python)."""
+    if getattr(sys, "frozen", False):
+        # Ejecutable PyInstaller
+        return sys.executable
+    else:
+        # Modo desarrollo: apunta a main.py con el Python actual
+        return f'"{sys.executable}" "{os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "main.py"))}"'
+
+
+def register_startup_task() -> tuple[bool, str]:
+    """
+    Crea (o actualiza) la tarea programada WinCleanStartup.
+    La tarea arranca WinClean.exe --tray al iniciar sesión con /RL HIGHEST.
+    Requiere privilegios de administrador.
+    Devuelve (ok: bool, mensaje: str).
+    """
+    exe = _get_exe_path()
+    # El argumento /TR necesita la ruta entre comillas si tiene espacios
+    tr_value = f'"{exe}" --tray' if not exe.startswith('"') else f'{exe} --tray'
+    code, out = _run([
+        "schtasks", "/Create",
+        "/TN", _TASK_NAME,
+        "/TR", tr_value,
+        "/SC", "ONLOGON",
+        "/RL", "HIGHEST",
+        "/F",
+        "/IT",
+    ])
+    if code == 0:
+        return True, "Tarea de inicio registrada correctamente."
+    else:
+        return False, f"Error al crear la tarea (código {code}): {out}"
+
+
+def unregister_startup_task() -> tuple[bool, str]:
+    """
+    Elimina la tarea programada WinCleanStartup.
+    Devuelve (ok: bool, mensaje: str).
+    """
+    code, out = _run(["schtasks", "/Delete", "/TN", _TASK_NAME, "/F"])
+    if code == 0:
+        return True, "Tarea de inicio eliminada."
+    else:
+        return False, f"Error al eliminar la tarea (código {code}): {out}"
+
+
+def is_startup_task_registered() -> bool:
+    """Devuelve True si la tarea WinCleanStartup existe en el Programador."""
+    code, _ = _run(["schtasks", "/Query", "/TN", _TASK_NAME])
+    return code == 0

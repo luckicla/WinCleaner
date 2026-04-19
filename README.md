@@ -1,6 +1,6 @@
-# WinClean v3.4 — Optimizador y herramienta de privacidad de Windows 10/11
+# WinClean v2.1 — Optimizador Windows 10/11
 
-> Limpia. Optimiza. Privatiza Tú decides qué se queda.
+> Limpia. Optimiza. Tú decides qué se queda.
 
 Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware, desactiva servicios innecesarios, aplica tweaks de privacidad y rendimiento, y en Windows 11 cuenta con un módulo específico para retirar toda la integración de IA del sistema.
 
@@ -12,13 +12,15 @@ Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware,
 
 Windows viene con decenas de aplicaciones, servicios y configuraciones que nunca pediste y que consumen recursos, recopilan datos y llenan tu escritorio de ruido. WinClean te da el control: ves exactamente qué hay, qué está activo, y puedes desactivarlo o eliminarlo con un clic — con indicación del nivel de riesgo de cada acción.
 
+No hay cajas negras. Todo lo que hace la herramienta es ejecutar comandos de PowerShell o modificaciones de registro estándar, los mismos que harías a mano.
+
 ---
 
 ## Características
 
-- **36+ aplicaciones bloatware** detectables y eliminables (Teams, Cortana, Xbox, Candy Crush, apps Bing, Copilot, Clipchamp, etc.)
-- **27+ servicios de Windows** configurables: desactivar, bloquear o restaurar con un clic
-- **27+ tweaks** de privacidad, rendimiento y gaming — con lectura del estado real del sistema antes de mostrarse
+- **36 aplicaciones bloatware** detectables y eliminables (Teams, Cortana, Xbox, Candy Crush, apps Bing, Copilot, Clipchamp, etc.)
+- **27 servicios de Windows** configurables: desactivar, bloquear o restaurar con un clic
+- **27 tweaks** de privacidad, rendimiento y gaming — con lectura del estado real del sistema antes de mostrarse
 - **Detección automática de Windows 10 vs 11** — las secciones exclusivas de W11 solo aparecen si corresponde
 - **Perfiles predefinidos** (Gaming, Trabajo, Mínimo) y perfiles de usuario personalizables en JSON
 - **Modo bandeja del sistema** — se minimiza a la bandeja en lugar de cerrarse
@@ -106,23 +108,7 @@ winclean/
 
 ---
 
-## Historial de cambios relevantes
-
-### 3.4
-- **Fix crítico:** Se ha arreglado errores en windows 11 que impedian correcto funcionamiento del sistema.
-- **Fix** Muchos fixes generales entre versiones no subidas
-- **Añadido** Limpiador de Windows en python basado en el script de mintyYuki. Repositorio: https://github.com/mintyYuki/win-cleaner
-- **Añadido** Avisos de funciones que pueden llegar a romper el sistema o que requieren reinicio
-- **Añadido** Pestaña de bloqueos con detección de LAN y bloqueo de puertos con posibles vulnerabilidades de privacidad
-- **Añadido** 3 modos de energía nuevos: 
-· Ahorro liviano: Menos brillo y mata bloat process
-· Ahorro Extremo: 
-- Limita la CPU al 30% de Frecuencia de Reloj
-- Quita Bluetooth y Wifi
-- Reduce el brillo al 15%
-- Mata procesos inútiles
-- Alto rendimiento mejorado: 
-· Desbloquea la frequiencia del procesador (como si estuviese conectado a la corriente)
+## Historial de cambios
 
 ### v2.1
 - **Fix crítico:** `AttributeError: '_tkinter.tkapp' object has no attribute '_tweak_cards'` — el diccionario `_tweak_cards` no se inicializaba en `__init__`, causando un crash al arrancar en Windows 11
