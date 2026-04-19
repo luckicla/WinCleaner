@@ -1,5 +1,5 @@
 @echo off
-:: WinClean Launcher - Ejecuta con privilegios de administrador
+:: WinCleaner v3.4 Launcher - Ejecuta con privilegios de administrador
 NET SESSION >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
     echo Solicitando permisos de administrador...

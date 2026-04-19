@@ -62,7 +62,7 @@ class WinCleanApp(tk.Tk):
         self.is_laptop = is_laptop()
 
         title_os = "Windows 11" if self.win11 else "Windows 10"
-        self.title(f"WinClean - Optimizador {title_os}")
+        self.title(f"WinCleaner v3.4 - Optimizador {title_os}")
         self.geometry("1200x760")
         self.minsize(1000, 640)
         self.configure(bg=COLORS["bg"])
@@ -203,7 +203,7 @@ class WinCleanApp(tk.Tk):
         topbar.pack(fill="x", side="top")
         topbar.pack_propagate(False)
 
-        tk.Label(topbar, text="WinClean", font=FONTS["title"],
+        tk.Label(topbar, text="WinCleaner v3.4", font=FONTS["title"],
                  bg=COLORS["surface"], fg=COLORS["accent"]).pack(side="left", padx=20, pady=10)
 
         os_label = "Windows 11" if self.win11 else "Windows 10"

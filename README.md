@@ -1,4 +1,4 @@
-# WinClean v2.1 — Optimizador Windows 10/11
+# WinCleaner v3.4 — Optimizador Windows 10/11
 
 > Limpia. Optimiza. Tú decides qué se queda.
 
@@ -8,9 +8,22 @@ Herramienta de limpieza y optimización para Windows 10 y 11. Elimina bloatware,
 
 ---
 
-## ¿Qué hace WinClean?
+## ⚖️ Licencia y Créditos
 
-Windows viene con decenas de aplicaciones, servicios y configuraciones que nunca pediste y que consumen recursos, recopilan datos y llenan tu escritorio de ruido. WinClean te da el control: ves exactamente qué hay, qué está activo, y puedes desactivarlo o eliminarlo con un clic — con indicación del nivel de riesgo de cada acción.
+**WinCleaner** es software propietario creado por **luckicla**. Todos los derechos reservados.
+
+- ✅ **Uso personal gratuito** — siempre que se dé crédito visible al autor.
+- ❌ **Uso empresarial prohibido** sin autorización escrita y explícita de luckicla.
+- 📌 **Crédito obligatorio** en cualquier fork, modificación o redistribución:
+  > *"Basado en WinCleaner, creado por luckicla."*
+
+Consulta el archivo [LICENSE](./LICENSE) para los términos completos.
+
+---
+
+## ¿Qué hace WinCleaner?
+
+Windows viene con decenas de aplicaciones, servicios y configuraciones que nunca pediste y que consumen recursos, recopilan datos y llenan tu escritorio de ruido. WinCleaner te da el control: ves exactamente qué hay, qué está activo, y puedes desactivarlo o eliminarlo con un clic — con indicación del nivel de riesgo de cada acción.
 
 No hay cajas negras. Todo lo que hace la herramienta es ejecutar comandos de PowerShell o modificaciones de registro estándar, los mismos que harías a mano.
 
@@ -73,7 +86,7 @@ pip install pystray pillow
 python main.py
 ```
 
-O doble clic en `ejecutar.bat` (eleva UAC automáticamente).
+O doble clic en `WinCleaner.bat` (eleva UAC automáticamente).
 
 ### Modo bandeja (inicio silencioso)
 
@@ -88,12 +101,9 @@ Aplica el perfil de inicio guardado sin abrir la ventana y se queda en la bandej
 ## Arquitectura
 
 ```
-winclean/
+WinCleaner/
   main.py                — Punto de entrada (GUI o --tray)
-  ejecutar.bat           — Lanzador con elevación UAC
-  build.bat              — Script de compilación a .exe
-  WinClean.spec          — Configuración PyInstaller
-  version_info.txt       — Metadatos del EXE
+  WinCleaner.bat         — Lanzador con elevación UAC
   core/
     data.py              — Listas de apps, servicios, tweaks y perfiles preset
     executor.py          — Ejecución real (PowerShell, sc.exe, registro de Windows)
@@ -110,6 +120,12 @@ winclean/
 
 ## Historial de cambios
 
+### v3.4 *(actual)*
+- Actualización de licencia a modelo propietario: uso empresarial requiere autorización explícita
+- Crédito obligatorio al autor (luckicla) en cualquier fork o redistribución
+- Actualización de versión a 3.4 en toda la base de código y documentación
+- Mejoras menores de estabilidad
+
 ### v2.1
 - **Fix crítico:** `AttributeError: '_tkinter.tkapp' object has no attribute '_tweak_cards'` — el diccionario `_tweak_cards` no se inicializaba en `__init__`, causando un crash al arrancar en Windows 11
 
@@ -117,7 +133,7 @@ winclean/
 - Nuevas funciones exclusivas para Windows 11: eliminación de toda la integración de IA (Copilot, Recall, búsqueda IA, Widgets, Snap Layout, Typing Insights, experiencias personalizadas, escritura por voz)
 - Corrección de errores de reconocimiento de servicios y apps
 - Mejora del rendimiento en segundo plano
-- Añadidos archivos de compilación a EXE standalone (`build.bat`, `WinClean.spec`, `EMPAQUETAR.md`)
+- Añadidos archivos de compilación a EXE standalone
 
 ### v1.2
 - **Fix:** `TclError: bad window path name` — los callbacks de `trace_add` se disparaban tras destruir widgets
@@ -128,4 +144,7 @@ winclean/
 
 ## Notas
 
-Proyecto iniciado el 13/04/2026. El código ha sido reorganizado y optimizado con ayuda de IA (Claude). Cualquier PR o sugerencia es bienvenida.
+Proyecto iniciado el 13/04/2026. El código ha sido reorganizado y optimizado con ayuda de IA (Claude).
+
+**© 2026 luckicla — WinCleaner v3.4. Todos los derechos reservados.**
+Para licencias comerciales o consultas, contacta con el autor directamente.

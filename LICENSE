@@ -1,5 +1,66 @@
-MIT License
-Copyright (c) 2026 luckicla
-Se concede permiso por la presente, de forma gratuita, a cualquier persona que obtenga una copia de este software y de los archivos de documentación asociados (el "Software"), para utilizar el Software sin restricción, incluyendo, sin limitación, los derechos de usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender copias del Software, sujeto a las siguientes condiciones:
-El aviso de copyright anterior y este aviso de permiso se incluirán en todas las copias o partes sustanciales del Software.
-EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIALIZACIÓN, IDONEIDAD PARA UN PROPÓSITO PARTICULAR E INCUMPLIMIENTO. EN NINGÚN CASO LOS AUTORES O PROPIETARIOS DE LOS DERECHOS DE AUTOR SERÁN RESPONSABLES DE NINGUNA RECLAMACIÓN, DAÑOS U OTRA RESPONSABILIDAD, YA SEA EN UNA ACCIÓN DE CONTRATO, AGRAVIO O DE OTRO MODO, QUE SURJA DE, FUERA DE O EN CONEXIÓN CON EL SOFTWARE O EL USO U OTROS TRATOS EN EL SOFTWARE.
+WinCleaner Proprietary License — Version 3.4
+Copyright (c) 2026 luckicla. All rights reserved.
+
+TÉRMINOS Y CONDICIONES DE USO
+
+1. TITULARIDAD
+   Todo el código fuente, binarios, documentación y recursos incluidos en este
+   software (en adelante, "WinCleaner") son propiedad exclusiva de su autor,
+   luckicla. Todos los derechos están reservados.
+
+2. USO PERSONAL PERMITIDO
+   Se concede permiso gratuito y no exclusivo a personas físicas (usuarios
+   individuales) para usar, ejecutar y modificar WinCleaner para uso
+   PERSONAL Y NO COMERCIAL, siempre que se cumplan las siguientes condiciones:
+
+   a) Se debe dar crédito claro y visible al autor original (luckicla) en
+      cualquier redistribución, fork, modificación o trabajo derivado.
+      Dicho crédito debe aparecer de forma PROMINENTE en la documentación,
+      la interfaz de usuario y/o el repositorio del proyecto, indicando
+      expresamente: "Basado en WinCleaner, creado por luckicla."
+
+   b) No se puede eliminar ni ocultar el aviso de copyright original de
+      ningún archivo fuente, binario o documentación.
+
+3. USO EMPRESARIAL — PROHIBIDO SIN CONSENTIMIENTO EXPLÍCITO
+   Queda EXPRESAMENTE PROHIBIDO el uso de WinCleaner, en su forma original
+   o modificada, por parte de cualquier empresa, organización, entidad
+   jurídica, institución pública o privada, con o sin ánimo de lucro, sin
+   haber obtenido PREVIAMENTE autorización escrita y explícita del autor
+   (luckicla).
+
+   Esto incluye, sin limitación:
+   - Uso interno en entornos corporativos o empresariales.
+   - Integración en productos o servicios comerciales.
+   - Redistribución por parte de empresas o como parte de un producto de pago.
+   - Uso en infraestructuras gestionadas por terceros con fines comerciales.
+
+   Para solicitar una licencia comercial, contacta con el autor directamente.
+
+4. REDISTRIBUCIÓN
+   Cualquier redistribución del software, modificada o no, debe:
+   - Incluir este archivo de licencia íntegro y sin modificaciones.
+   - Mantener todos los avisos de copyright originales.
+   - Indicar claramente y de forma visible los cambios realizados respecto
+     a la versión original.
+   - Dar crédito explícito a luckicla como autor original (ver cláusula 2a).
+
+5. TRABAJOS DERIVADOS
+   Los trabajos derivados están permitidos únicamente para uso personal y no
+   comercial, y deben cumplir íntegramente los términos de esta licencia,
+   especialmente la obligación de crédito (cláusula 2a) y la prohibición de
+   uso empresarial sin autorización (cláusula 3).
+
+6. SIN GARANTÍA
+   EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO,
+   EXPRESA O IMPLÍCITA. EL AUTOR NO SE HACE RESPONSABLE DE NINGÚN DAÑO,
+   PÉRDIDA DE DATOS O CONSECUENCIA DERIVADA DEL USO DE ESTE SOFTWARE.
+
+7. INCUMPLIMIENTO
+   Cualquier uso que no cumpla los términos de esta licencia constituye una
+   infracción de los derechos de autor del autor y puede dar lugar a acciones
+   legales.
+
+---
+Para licencias comerciales o consultas: contacta con luckicla.
+WinCleaner v3.4 — https://github.com/luckicla/WinCleaner
