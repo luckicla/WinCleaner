@@ -1,5 +1,62 @@
-MIT License
 Copyright (c) 2026 luckicla
-Se concede permiso por la presente, de forma gratuita, a cualquier persona que obtenga una copia de este software y de los archivos de documentación asociados (el "Software"), para utilizar el Software sin restricción, incluyendo, sin limitación, los derechos de usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender copias del Software, sujeto a las siguientes condiciones:
-El aviso de copyright anterior y este aviso de permiso se incluirán en todas las copias o partes sustanciales del Software.
-EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIALIZACIÓN, IDONEIDAD PARA UN PROPÓSITO PARTICULAR E INCUMPLIMIENTO. EN NINGÚN CASO LOS AUTORES O PROPIETARIOS DE LOS DERECHOS DE AUTOR SERÁN RESPONSABLES DE NINGUNA RECLAMACIÓN, DAÑOS U OTRA RESPONSABILIDAD, YA SEA EN UNA ACCIÓN DE CONTRATO, AGRAVIO O DE OTRO MODO, QUE SURJA DE, FUERA DE O EN CONEXIÓN CON EL SOFTWARE O EL USO U OTROS TRATOS EN EL SOFTWARE.
+
+Por la presente se concede permiso, de forma limitada, a cualquier persona física (individuo) que obtenga una copia de este software y de los archivos de documentación asociados (el "Software"), para utilizarlo exclusivamente bajo las condiciones descritas a continuación.
+
+1. USO PERMITIDO (SOLO INDIVIDUAL Y NO COMERCIAL)
+Se permite el uso, copia, modificación y mejora del Software únicamente para fines personales, educativos o no comerciales.
+
+2. ATRIBUCIÓN OBLIGATORIA
+Cualquier uso, copia, modificación, mejora o distribución del Software o de trabajos derivados DEBE incluir de forma clara, visible y accesible:
+- El nombre del autor original: "luckicla"
+- Una referencia explícita a la base de código original
+
+3. PROHIBICIÓN DE USO COMERCIAL
+Queda estrictamente prohibido el uso del Software, total o parcial, para cualquier finalidad comercial sin el permiso previo, explícito y por escrito del autor.
+
+Se considera uso comercial, sin limitarse a:
+- Venta del Software o derivados
+- Integración en productos o servicios de pago
+- Uso en entornos empresariales o corporativos
+- Generación directa o indirecta de ingresos
+
+4. RESTRICCIÓN TOTAL A EMPRESAS Y ORGANIZACIONES
+Queda estrictamente prohibido a cualquier empresa, entidad, organización o persona jurídica:
+- Usar el Software
+- Copiarlo
+- Modificarlo
+- Analizarlo con fines de desarrollo
+- Integrarlo en otros sistemas
+- Crear trabajos derivados
+
+sin una licencia comercial otorgada expresamente y por escrito por el autor.
+
+El uso no autorizado por parte de entidades comerciales se considerará una infracción grave de esta licencia.
+
+5. LICENCIAS COMERCIALES
+Las empresas u organizaciones que deseen utilizar este Software deberán obtener una licencia comercial directamente del autor.
+
+Sin dicha licencia, cualquier uso está terminantemente prohibido.
+
+6. DISTRIBUCIÓN
+Se permite la redistribución del Software o de versiones modificadas únicamente si:
+- Se incluye este texto de licencia completo sin modificaciones
+- Se mantiene intacta la atribución al autor
+- No se cambia el nombre del autor ni se elimina su referencia
+
+7. PROHIBICIÓN DE REAPROPIACIÓN
+Queda prohibido:
+- Reclamar el Software como propio
+- Ocultar su origen
+- Publicarlo bajo otra licencia
+- Reutilizar partes sustanciales sin atribución
+
+8. SIN GARANTÍA
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE COMERCIALIZACIÓN, IDONEIDAD PARA UN PROPÓSITO PARTICULAR O NO INFRACCIÓN.
+
+9. LIMITACIÓN DE RESPONSABILIDAD
+EN NINGÚN CASO EL AUTOR SERÁ RESPONSABLE DE NINGUNA RECLAMACIÓN, DAÑO O RESPONSABILIDAD, YA SEA EN UNA ACCIÓN DE CONTRATO, AGRAVIO O DE OTRO TIPO, DERIVADA DE, FUERA DE O EN CONEXIÓN CON EL SOFTWARE O SU USO.
+
+10. ACEPTACIÓN DE LA LICENCIA
+El uso, copia o distribución del Software implica la aceptación total de los términos de esta licencia.
+
+Si no se aceptan estos términos, no se concede ningún derecho de uso.
