@@ -1,4 +1,4 @@
-# WinCleaner v3.4 — Optimizador Windows 10/11
+# WinCleaner v3.7.1 — Optimizador Windows 10/11
 
 > Limpia. Optimiza. Tú decides qué se queda.
 
@@ -40,6 +40,9 @@ No hay cajas negras. Todo lo que hace la herramienta es ejecutar comandos de Pow
 - **Inicio automático con perfil** — puede aplicar un perfil silenciosamente al arrancar Windows
 - **Selector de plan de energía** con detección de portátil
 - **Límites de recursos por proceso** — control manual de CPU/memoria por aplicación
+- **Bloqueos de función avanzados** — 15 bloqueos de puertos y servicios de acceso remoto y monitorización
+- **Control de aplicaciones en red** — escaneo en tiempo real de conexiones activas con bloqueo por proceso
+- **Aislamiento total de red** — corte completo de todo el tráfico de red con un clic
 
 ---
 
@@ -120,7 +123,43 @@ WinCleaner/
 
 ## Historial de cambios
 
-### v3.4 *(actual)*
+### v3.7.1 *(actual)*
+
+#### 🔒 Bloqueos de Función — nueva arquitectura con sub-pestañas
+La pestaña de bloqueos se divide ahora en dos secciones accesibles mediante sub-pestañas internas:
+
+**Sub-pestaña: 🔒 Puertos y Servicios**
+- Bloqueos nuevos añadidos (además de RDP, Asistencia Remota, WinRM, VNC, SMB y captura DXGI ya existentes):
+  - **SPICE (5910 TCP)** — control remoto en entornos KVM/QEMU/oVirt
+  - **NX / NoMachine (4000 TCP)** — escritorio remoto NoMachine
+  - **TeamViewer (5938 TCP+UDP)** — bloqueo bidireccional completo
+  - **AnyDesk (7070 TCP)** — conexiones directas LAN
+  - **RDP UDP (3389 UDP)** — complemento al bloqueo RDP TCP para cortar el transporte de vídeo acelerado
+  - **WinRM HTTPS (5986 TCP)** — variante cifrada del PowerShell remoto
+  - **NetBIOS (137-139 TCP+UDP)** — resolución de nombres y recursos legacy
+  - **Faronics Insight** — todos sus puertos de monitorización escolar: 796, 11796 (TCP+UDP, entrada y salida), 1053 UDP, 8080, 8085, 8888, 8889, 8890 TCP
+
+**Sub-pestaña: 🛡️ Control de Aplicaciones**
+- Escaneo en tiempo real con `netstat` + `tasklist` — detecta qué apps tienen conexiones activas en ese momento
+- Tarjeta por proceso con nombre, protocolos, puertos activos y PIDs
+- Botón **BLOQUEAR** individual por proceso — crea regla de firewall de salida por ruta de ejecutable
+- Botón **⛔ Bloquear todas** — bloquea de golpe todas las apps detectadas
+- Botón **✅ Restaurar todas** — elimina todas las reglas de bloqueo de apps creadas por WinClean
+- Al reabrir, lee el estado real del firewall para cada proceso
+
+#### 🚨 Aislamiento Total de Red
+- Nuevo botón al final de la sub-pestaña de Puertos y Servicios
+- Bloquea **todo** el tráfico entrante y saliente mediante dos reglas de Firewall de Windows (protocolo=any)
+- El equipo sigue funcionando con normalidad de forma local
+- El botón alterna entre rojo (aislar) y verde (restaurar) mostrando el estado actual
+- Detecta al arrancar si el aislamiento ya estaba activo de una sesión anterior
+
+#### 🔖 Versión
+- Versión actualizada a **v3.7.1** en UI, título de ventana, `main.py` y `WinCleaner.bat`
+
+---
+
+### v3.4
 - Actualización de licencia a modelo propietario: uso empresarial requiere autorización explícita
 - Crédito obligatorio al autor (luckicla) en cualquier fork o redistribución
 - Actualización de versión a 3.4 en toda la base de código y documentación
@@ -146,5 +185,5 @@ WinCleaner/
 
 Proyecto iniciado el 13/04/2026. El código ha sido reorganizado y optimizado con ayuda de IA (Claude).
 
-**© 2026 luckicla — WinCleaner v3.4. Todos los derechos reservados.**
+**© 2026 luckicla — WinCleaner v3.7.1. Todos los derechos reservados.**
 Para licencias comerciales o consultas, contacta con el autor directamente.

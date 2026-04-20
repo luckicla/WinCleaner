@@ -62,7 +62,7 @@ class WinCleanApp(tk.Tk):
         self.is_laptop = is_laptop()
 
         title_os = "Windows 11" if self.win11 else "Windows 10"
-        self.title(f"WinCleaner v3.4 - Optimizador {title_os}")
+        self.title(f"WinCleaner v3.7.1 - Optimizador {title_os}")
         self.geometry("1200x760")
         self.minsize(1000, 640)
         self.configure(bg=COLORS["bg"])
@@ -203,7 +203,7 @@ class WinCleanApp(tk.Tk):
         topbar.pack(fill="x", side="top")
         topbar.pack_propagate(False)
 
-        tk.Label(topbar, text="WinCleaner v3.4", font=FONTS["title"],
+        tk.Label(topbar, text="WinCleaner v3.7.1", font=FONTS["title"],
                  bg=COLORS["surface"], fg=COLORS["accent"]).pack(side="left", padx=20, pady=10)
 
         os_label = "Windows 11" if self.win11 else "Windows 10"
@@ -1118,15 +1118,103 @@ class WinCleanApp(tk.Tk):
             "reg_key": r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
             "reg_val": "fDisableScreenCapture",
         },
+        {
+            "id":    "lock_spice",
+            "name":  "Puerto SPICE (5910)",
+            "desc":  "Bloquea el puerto TCP 5910 usado por el protocolo SPICE (Simple Protocol for Independent Computing Environments). "
+                     "Impide control remoto de pantalla en entornos virtualizados (KVM, QEMU, oVirt).",
+            "svc":   None,
+            "port":  5910,
+            "fw_rule": "WinClean_Block_SPICE",
+        },
+        {
+            "id":    "lock_nx",
+            "name":  "Puerto NX/NoMachine (4000)",
+            "desc":  "Bloquea el puerto TCP 4000 usado por NoMachine NX y herramientas similares de escritorio remoto. "
+                     "Impide sesiones remotas de pantalla a través de este protocolo.",
+            "svc":   None,
+            "port":  4000,
+            "fw_rule": "WinClean_Block_NX",
+        },
+        {
+            "id":    "lock_teamviewer",
+            "name":  "Puerto TeamViewer (5938)",
+            "desc":  "Bloquea el puerto TCP/UDP 5938 principal de TeamViewer. "
+                     "Dificulta las conexiones entrantes y salientes de control remoto y compartición de pantalla de TeamViewer.",
+            "svc":   None,
+            "port":  5938,
+            "fw_rule": "WinClean_Block_TeamViewer",
+            "fw_rule_udp": "WinClean_Block_TeamViewer_UDP",
+        },
+        {
+            "id":    "lock_anydesk",
+            "name":  "Puerto AnyDesk (7070)",
+            "desc":  "Bloquea el puerto TCP 7070 usado por AnyDesk para conexiones directas de escritorio remoto entre equipos de la red local.",
+            "svc":   None,
+            "port":  7070,
+            "fw_rule": "WinClean_Block_AnyDesk",
+        },
+        {
+            "id":    "lock_rdp_udp",
+            "name":  "RDP UDP (3389 UDP)",
+            "desc":  "Bloquea el puerto UDP 3389 usado por las versiones modernas de RDP para transporte de vídeo acelerado (RDP-UDP). "
+                     "Complemento al bloqueo RDP TCP para una protección completa del escritorio remoto.",
+            "svc":   None,
+            "port":  3389,
+            "fw_rule": "WinClean_Block_RDP_UDP",
+            "protocol": "UDP",
+        },
+        {
+            "id":    "lock_winrm_https",
+            "name":  "WinRM HTTPS (5986)",
+            "desc":  "Bloquea el puerto TCP 5986 usado por WinRM sobre HTTPS. "
+                     "Impide la ejecución remota cifrada de comandos PowerShell/WMI que evita el puerto 5985.",
+            "svc":   None,
+            "port":  5986,
+            "fw_rule": "WinClean_Block_WinRM_HTTPS",
+        },
+        {
+            "id":    "lock_netbios",
+            "name":  "NetBIOS (137-139)",
+            "desc":  "Bloquea los puertos TCP/UDP 137, 138 y 139 de NetBIOS. "
+                     "Impide la resolución de nombres y transferencias de archivos legacy en la red local que pueden exponer recursos del equipo.",
+            "svc":   None,
+            "port":  137,
+            "fw_rule": "WinClean_Block_NetBIOS",
+        },
+        {
+            "id":    "lock_faronics",
+            "name":  "Faronics Insight (796, 11796, 1053, 8080, 8085, 8888-8890)",
+            "desc":  "Bloquea todos los puertos usados por Faronics Insight: 796 y 11796 (control remoto alumno/profesor), "
+                     "1053 UDP (estado), 8080/8085 (Connection Server), 8888/8889/8890 (WebSocket Insight 11). "
+                     "Impide que el software de monitorización escolar controle o vea la pantalla de este equipo.",
+            "svc":   None,
+            "port":  796,
+            "fw_rule": "WinClean_Block_Faronics",
+        },
     ]
 
     def _build_locks_tab(self, parent):
-        """Build the BLOQUEOS DE FUNCIÓN tab."""
-        self._lock_states  = {}   # lock_id -> bool (True = restriction ON)
-        self._lock_btns    = {}   # lock_id -> toggle Button
-        self._lock_ind     = {}   # lock_id -> indicator Label (colored dot)
-        self._lock_status  = {}   # lock_id -> status Label
+        """Build the BLOQUEOS DE FUNCIÓN tab with internal sub-notebook."""
+        self._lock_states  = {}
+        self._lock_btns    = {}
+        self._lock_ind     = {}
+        self._lock_status  = {}
 
+        # ── Internal sub-notebook ────────────────────────────────────
+        sub_nb = ttk.Notebook(parent)
+        sub_nb.pack(fill="both", expand=True)
+
+        locks_frame = tk.Frame(sub_nb, bg=COLORS["bg"])
+        apps_frame  = tk.Frame(sub_nb, bg=COLORS["bg"])
+        sub_nb.add(locks_frame, text="🔒 Puertos y Servicios")
+        sub_nb.add(apps_frame,  text="🛡️ Control de Aplicaciones")
+
+        self._build_locks_subtab(locks_frame)
+        self._build_appcontrol_tab(apps_frame)
+
+    def _build_locks_subtab(self, parent):
+        """Build the ports/services lock cards sub-tab."""
         # ── Header ──────────────────────────────────────────────────
         hdr = tk.Frame(parent, bg=COLORS["surface"], pady=10, padx=16)
         hdr.pack(fill="x")
@@ -1172,9 +1260,480 @@ class WinCleanApp(tk.Tk):
             self._lock_states[item["id"]] = False
             self._build_lock_card(inner, item)
 
+        # ── Botón de Aislamiento Total ───────────────────────────────
+        tk.Frame(inner, bg=COLORS["bg"], height=8).pack(fill="x")
+        tk.Frame(inner, bg="#441111", height=1).pack(fill="x", padx=16)
+
+        iso_frame = tk.Frame(inner, bg="#1a0a0a", pady=16, padx=16)
+        iso_frame.pack(fill="x", pady=(0, 8))
+
+        iso_left = tk.Frame(iso_frame, bg="#1a0a0a")
+        iso_left.pack(side="left", fill="both", expand=True)
+
+        tk.Label(iso_left,
+                 text="🚨  AISLAMIENTO TOTAL DE RED",
+                 font=FONTS["label"],
+                 bg="#1a0a0a", fg="#ff4444").pack(anchor="w")
+        tk.Label(iso_left,
+                 text="Bloquea TODO el tráfico de red entrante y saliente mediante el Firewall de Windows.\n"
+                      "Para bloquear solo aplicaciones específicas, usa la pestaña 🛡️ Control de Aplicaciones.\n"
+                      "El equipo sigue funcionando de forma local. Para restaurar, pulsa el botón de nuevo.",
+                 font=FONTS["small"],
+                 bg="#1a0a0a", fg="#cc8888",
+                 wraplength=620, justify="left", anchor="w").pack(anchor="w", pady=(2, 0))
+
+        self._iso_status_lbl = tk.Label(iso_left,
+                 text="Estado: conectado a la red",
+                 font=FONTS["small"],
+                 bg="#1a0a0a", fg="#cc4444", anchor="w")
+        self._iso_status_lbl.pack(anchor="w", pady=(4, 0))
+
+        self._iso_btn = tk.Button(
+            iso_frame,
+            text="⛔  AISLAR\nEQUIPO",
+            width=12,
+            command=self._toggle_isolation,
+            bg="#5a1010", fg="#ff6666",
+            font=("Segoe UI", 9, "bold"),
+            relief="flat", cursor="hand2",
+            pady=10, activebackground="#7a1515",
+            wraplength=90,
+        )
+        self._iso_btn.pack(side="right", padx=(10, 0))
+
+        self._isolation_active = False
+        self.after(600, self._check_isolation_state)
+
         # Start async network detection + state read
         self.after(400, self._locks_detect_network)
         self.after(500, self._locks_read_all_states)
+
+    def _check_isolation_state(self):
+        """Check if network isolation is currently active and update UI."""
+        def do():
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["netsh", "advfirewall", "firewall", "show", "rule",
+                     "name=WinClean_ISOLATION_IN"],
+                    capture_output=True, text=True,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                active = "No rules match" not in result.stdout and "WinClean_ISOLATION_IN" in result.stdout
+            except Exception:
+                active = False
+            self.after(0, lambda: self._update_isolation_ui(active))
+        threading.Thread(target=do, daemon=True).start()
+
+    def _update_isolation_ui(self, active: bool):
+        self._isolation_active = active
+        if not hasattr(self, '_iso_btn'):
+            return
+        if active:
+            self._iso_btn.config(
+                text="✅  REACTIVAR\nRED",
+                bg="#0a3a0a", fg="#55ee55",
+                activebackground="#0e500e",
+            )
+            self._iso_status_lbl.config(
+                text="🔴  AISLADO — Sin acceso a red. El equipo funciona solo de forma local.",
+                fg="#ff4444",
+            )
+        else:
+            self._iso_btn.config(
+                text="⛔  AISLAR\nEQUIPO",
+                bg="#5a1010", fg="#ff6666",
+                activebackground="#7a1515",
+            )
+            self._iso_status_lbl.config(
+                text="🟢  Estado: conectado a la red (sin aislamiento activo)",
+                fg="#55aa55",
+            )
+
+    def _toggle_isolation(self):
+        """Toggle complete network isolation on/off."""
+        if self._isolation_active:
+            msg = ("¿Desactivar el aislamiento de red?\n\n"
+                   "El equipo volverá a tener acceso completo a la red.")
+            confirm_title = "Desactivar aislamiento"
+        else:
+            msg = ("⚠️  ¿AISLAR COMPLETAMENTE ESTE EQUIPO DE LA RED?\n\n"
+                   "Se bloqueará TODO el tráfico de red (entrante y saliente).\n"
+                   "Internet y la red local dejarán de funcionar.\n\n"
+                   "El equipo seguirá funcionando con normalidad de forma local.\n"
+                   "Para restaurar la red, pulsa el botón de nuevo.")
+            confirm_title = "Aislamiento total de red"
+
+        if not messagebox.askyesno(confirm_title, msg):
+            return
+
+        self._iso_btn.config(state="disabled")
+        self.status_text.set("Aplicando cambios de aislamiento de red...")
+
+        def do():
+            import subprocess
+            cf = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            ok = True
+            err = ""
+            try:
+                if not self._isolation_active:
+                    # Block ALL inbound traffic
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "add", "rule",
+                        "name=WinClean_ISOLATION_IN", "dir=in", "action=block",
+                        "protocol=any", "localip=any", "remoteip=any",
+                    ], check=True, capture_output=True, creationflags=cf)
+                    # Block ALL outbound traffic
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "add", "rule",
+                        "name=WinClean_ISOLATION_OUT", "dir=out", "action=block",
+                        "protocol=any", "localip=any", "remoteip=any",
+                    ], check=True, capture_output=True, creationflags=cf)
+                    new_state = True
+                else:
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "delete", "rule",
+                        "name=WinClean_ISOLATION_IN",
+                    ], capture_output=True, creationflags=cf)
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "delete", "rule",
+                        "name=WinClean_ISOLATION_OUT",
+                    ], capture_output=True, creationflags=cf)
+                    new_state = False
+            except subprocess.CalledProcessError as e:
+                ok = False
+                new_state = self._isolation_active
+                err = e.stderr.decode(errors="replace") if e.stderr else str(e)
+            except Exception as e:
+                ok = False
+                new_state = self._isolation_active
+                err = str(e)
+
+            def finish():
+                self._iso_btn.config(state="normal")
+                if ok:
+                    self._update_isolation_ui(new_state)
+                    verb = "AISLADO" if new_state else "Aislamiento desactivado — red restaurada"
+                    self.status_text.set(f"{'🔴 Equipo ' if new_state else '🟢 '}{verb}")
+                else:
+                    self.status_text.set(f"❌ Error en aislamiento: {err[:80]}")
+                    messagebox.showerror("Error de aislamiento",
+                                         f"No se pudo cambiar el estado de aislamiento:\n\n{err}\n\n"
+                                         "Comprueba que WinClean se ejecuta como Administrador.")
+            self.after(0, finish)
+
+        threading.Thread(target=do, daemon=True).start()
+
+    # ══════════════════════════════════════════════════════════════════
+    # APP CONTROL TAB — scan running connections, block per process
+    # ══════════════════════════════════════════════════════════════════
+
+    def _build_appcontrol_tab(self, parent):
+        """Build the per-application network control tab."""
+        self._appctrl_blocked  = {}   # proc_name -> bool
+        self._appctrl_cards    = {}   # proc_name -> frame
+        self._appctrl_btns     = {}   # proc_name -> button
+        self._appctrl_dot      = {}   # proc_name -> dot label
+        self._appctrl_scanning = False
+
+        # ── Header ──────────────────────────────────────────────────
+        hdr = tk.Frame(parent, bg=COLORS["surface"], pady=10, padx=16)
+        hdr.pack(fill="x")
+        tk.Label(hdr, text="🛡️  CONTROL DE APLICACIONES EN RED",
+                 font=FONTS["label"], bg=COLORS["surface"], fg=COLORS["accent"]).pack(side="left")
+
+        scan_btn = tk.Button(
+            hdr, text="↺  Escanear",
+            command=self._appctrl_scan,
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=3, activebackground=COLORS["btn_hover"],
+        )
+        scan_btn.pack(side="right")
+        self._appctrl_scan_btn = scan_btn
+
+        block_all_btn = tk.Button(
+            hdr, text="⛔  Bloquear todas",
+            command=self._appctrl_block_all,
+            bg="#5a1010", fg="#ff6666",
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=3, activebackground="#7a1515",
+        )
+        block_all_btn.pack(side="right", padx=(0, 6))
+
+        unblock_all_btn = tk.Button(
+            hdr, text="✅  Restaurar todas",
+            command=self._appctrl_unblock_all,
+            bg="#0a3a0a", fg="#55ee55",
+            font=FONTS["small"], relief="flat", cursor="hand2",
+            padx=8, pady=3, activebackground="#0e500e",
+        )
+        unblock_all_btn.pack(side="right", padx=(0, 6))
+
+        # ── Subtitle ────────────────────────────────────────────────
+        sub = tk.Frame(parent, bg=COLORS["bg"], pady=4, padx=16)
+        sub.pack(fill="x")
+        tk.Label(
+            sub,
+            text="Aplicaciones detectadas usando la red ahora mismo. Puedes bloquear su tráfico saliente individualmente o todas a la vez.",
+            font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+            anchor="w", wraplength=780,
+        ).pack(fill="x")
+
+        # ── Scan status label ────────────────────────────────────────
+        self._appctrl_status_lbl = tk.Label(
+            parent, text="Pulsa ↺ Escanear para detectar aplicaciones activas en red.",
+            font=FONTS["small"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+            anchor="w", padx=16,
+        )
+        self._appctrl_status_lbl.pack(fill="x", pady=(0, 4))
+
+        # ── Scrollable results area ──────────────────────────────────
+        _, self._appctrl_inner = self._make_scrollable(parent)
+
+    def _appctrl_scan(self):
+        """Async: scan netstat for active connections and populate cards."""
+        if self._appctrl_scanning:
+            return
+        self._appctrl_scanning = True
+        self._appctrl_scan_btn.config(state="disabled", text="⏳  Escaneando...")
+        self._appctrl_status_lbl.config(text="Escaneando conexiones activas...", fg=COLORS["text_muted"])
+
+        def do():
+            import subprocess, re
+            procs = {}   # name -> {pids, ports, protos}
+
+            # netstat -ano gives: Proto  Local  Foreign  State  PID
+            try:
+                out = subprocess.check_output(
+                    ["netstat", "-ano"],
+                    text=True, timeout=15,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+            except Exception as e:
+                self.after(0, lambda: self._appctrl_done(procs, f"Error netstat: {e}"))
+                return
+
+            pid_to_name = {}
+            # Build PID->name map via tasklist
+            try:
+                tl = subprocess.check_output(
+                    ["tasklist", "/fo", "csv", "/nh"],
+                    text=True, timeout=10,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                for line in tl.splitlines():
+                    parts = [p.strip('"') for p in line.split('","')]
+                    if len(parts) >= 2:
+                        try:
+                            pid_to_name[int(parts[1])] = parts[0]
+                        except ValueError:
+                            pass
+            except Exception:
+                pass
+
+            for line in out.splitlines():
+                line = line.strip()
+                m = re.match(
+                    r"(TCP|UDP)\s+[\d\.\[\]:]+:(\d+)\s+[\d\.\[\]:]+:\S+\s+(?:ESTABLISHED|LISTENING|TIME_WAIT|CLOSE_WAIT|SYN_SENT)?\s*(\d+)",
+                    line,
+                )
+                if not m:
+                    continue
+                proto, port, pid_str = m.group(1), int(m.group(2)), int(m.group(3))
+                if pid_str == 0:
+                    continue
+                name = pid_to_name.get(pid_str, f"PID {pid_str}")
+                # Skip system noise
+                if name.lower() in ("system", "svchost.exe", "lsass.exe", "services.exe",
+                                    "wininit.exe", "csrss.exe", "smss.exe", "ntoskrnl.exe"):
+                    continue
+                if name not in procs:
+                    procs[name] = {"ports": set(), "protos": set(), "pids": set()}
+                procs[name]["ports"].add(port)
+                procs[name]["protos"].add(proto)
+                procs[name]["pids"].add(pid_str)
+
+            self.after(0, lambda: self._appctrl_done(procs, None))
+
+        threading.Thread(target=do, daemon=True).start()
+
+    def _appctrl_done(self, procs: dict, error: str | None):
+        """Populate the cards area after a scan."""
+        self._appctrl_scanning = False
+        self._appctrl_scan_btn.config(state="normal", text="↺  Escanear")
+
+        if error:
+            self._appctrl_status_lbl.config(text=f"❌ {error}", fg=COLORS["danger"])
+            return
+
+        # Clear old cards
+        for w in self._appctrl_inner.winfo_children():
+            w.destroy()
+        self._appctrl_cards.clear()
+        self._appctrl_btns.clear()
+        self._appctrl_dot.clear()
+
+        if not procs:
+            tk.Label(self._appctrl_inner,
+                     text="No se detectaron aplicaciones con conexiones activas.",
+                     font=FONTS["body"], bg=COLORS["bg"], fg=COLORS["text_muted"],
+                     anchor="w", padx=16).pack(fill="x", pady=20)
+            self._appctrl_status_lbl.config(
+                text="Sin conexiones activas detectadas.", fg=COLORS["text_muted"])
+            return
+
+        for name, info in sorted(procs.items(), key=lambda x: x[0].lower()):
+            self._appctrl_build_card(name, info)
+            # Read current block state
+            self._appctrl_read_state_async(name)
+
+        n = len(procs)
+        self._appctrl_status_lbl.config(
+            text=f"✅ {n} aplicación{'es' if n != 1 else ''} detectada{'s' if n != 1 else ''} usando la red.",
+            fg=COLORS["success"],
+        )
+
+    def _appctrl_build_card(self, name: str, info: dict):
+        """Build a card for one process."""
+        card = tk.Frame(self._appctrl_inner, bg=COLORS["surface"], pady=10, padx=14)
+        card.pack(fill="x", padx=16, pady=3)
+        self._appctrl_cards[name] = card
+
+        dot = tk.Label(card, text="●", font=("Segoe UI", 14),
+                       bg=COLORS["surface"], fg=COLORS["text_muted"])
+        dot.pack(side="left", padx=(0, 10))
+        self._appctrl_dot[name] = dot
+
+        mid = tk.Frame(card, bg=COLORS["surface"])
+        mid.pack(side="left", fill="both", expand=True)
+
+        ports_str = ", ".join(str(p) for p in sorted(info["ports"])[:12])
+        if len(info["ports"]) > 12:
+            ports_str += f" (+{len(info['ports'])-12} más)"
+        protos_str = "/".join(sorted(info["protos"]))
+        pids_str   = ", ".join(str(p) for p in sorted(info["pids"])[:5])
+
+        tk.Label(mid, text=name, font=FONTS["body"],
+                 bg=COLORS["surface"], fg=COLORS["text"], anchor="w").pack(anchor="w")
+        tk.Label(mid,
+                 text=f"Protocolo: {protos_str}  ·  Puertos: {ports_str}  ·  PID: {pids_str}",
+                 font=FONTS["small"], bg=COLORS["surface"], fg=COLORS["text_muted"],
+                 anchor="w").pack(anchor="w")
+        self._appctrl_blocked.setdefault(name, False)
+
+        btn = tk.Button(
+            card, text="BLOQUEAR",
+            width=10,
+            command=lambda n=name: self._appctrl_toggle(n),
+            bg=COLORS["btn"], fg=COLORS["text_muted"],
+            font=FONTS["button"], relief="flat", cursor="hand2",
+            pady=6, activebackground=COLORS["btn_hover"],
+        )
+        btn.pack(side="right", padx=(10, 0))
+        self._appctrl_btns[name] = btn
+
+    def _appctrl_rule_name(self, proc_name: str) -> str:
+        safe = proc_name.replace(" ", "_").replace(".", "_")[:40]
+        return f"WinClean_AppBlock_{safe}"
+
+    def _appctrl_read_state_async(self, name: str):
+        def do():
+            import subprocess
+            rule = self._appctrl_rule_name(name)
+            try:
+                result = subprocess.run(
+                    ["netsh", "advfirewall", "firewall", "show", "rule", f"name={rule}"],
+                    capture_output=True, text=True,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
+                )
+                active = "No rules match" not in result.stdout and rule in result.stdout
+            except Exception:
+                active = False
+            self.after(0, lambda: self._appctrl_update_card_ui(name, active))
+        threading.Thread(target=do, daemon=True).start()
+
+    def _appctrl_update_card_ui(self, name: str, blocked: bool):
+        self._appctrl_blocked[name] = blocked
+        btn = self._appctrl_btns.get(name)
+        dot = self._appctrl_dot.get(name)
+        if blocked:
+            if btn: btn.config(text="BLOQUEADA", bg="#2a0a0a", fg="#ff6666",
+                               activebackground="#3a1010")
+            if dot: dot.config(fg="#ff4444")
+        else:
+            if btn: btn.config(text="BLOQUEAR", bg=COLORS["btn"], fg=COLORS["text_muted"],
+                               activebackground=COLORS["btn_hover"])
+            if dot: dot.config(fg=COLORS["text_muted"])
+
+    def _appctrl_toggle(self, name: str):
+        import subprocess
+        blocked = self._appctrl_blocked.get(name, False)
+        rule    = self._appctrl_rule_name(name)
+        btn     = self._appctrl_btns.get(name)
+        if btn: btn.config(state="disabled")
+
+        def do():
+            cf = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+            try:
+                if not blocked:
+                    # Block outbound traffic for this exe name
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "add", "rule",
+                        f"name={rule}", "dir=out", "action=block",
+                        "protocol=any", f"program=%SystemRoot%\\*",
+                    ], capture_output=True, creationflags=cf)
+                    # More reliable: block by program name via PowerShell
+                    subprocess.run([
+                        "powershell", "-WindowStyle", "Hidden", "-Command",
+                        f"New-NetFirewallRule -DisplayName '{rule}' -Direction Outbound "
+                        f"-Action Block -Program (Get-Process | Where-Object {{$_.Name -eq '{name.replace('.exe','')}' }} | "
+                        f"Select-Object -First 1 -ExpandProperty Path) -ErrorAction SilentlyContinue"
+                    ], capture_output=True, creationflags=cf, timeout=15)
+                    new_state = True
+                else:
+                    subprocess.run([
+                        "netsh", "advfirewall", "firewall", "delete", "rule",
+                        f"name={rule}",
+                    ], capture_output=True, creationflags=cf)
+                    subprocess.run([
+                        "powershell", "-WindowStyle", "Hidden", "-Command",
+                        f"Remove-NetFirewallRule -DisplayName '{rule}' -ErrorAction SilentlyContinue"
+                    ], capture_output=True, creationflags=cf, timeout=10)
+                    new_state = False
+            except Exception:
+                new_state = blocked  # revert
+
+            def finish():
+                if btn: btn.config(state="normal")
+                self._appctrl_update_card_ui(name, new_state)
+                verb = "bloqueada 🔴" if new_state else "desbloqueada 🟢"
+                self.status_text.set(f"Aplicación {name} {verb}")
+            self.after(0, finish)
+
+        threading.Thread(target=do, daemon=True).start()
+
+    def _appctrl_block_all(self):
+        names = [n for n, blocked in self._appctrl_blocked.items() if not blocked]
+        if not names:
+            messagebox.showinfo("Sin cambios", "Todas las aplicaciones detectadas ya están bloqueadas.")
+            return
+        if not messagebox.askyesno("Bloquear todas",
+                f"¿Bloquear el tráfico saliente de {len(names)} aplicación(es) activa(s)?"):
+            return
+        for name in names:
+            self._appctrl_toggle(name)
+
+    def _appctrl_unblock_all(self):
+        names = [n for n, blocked in self._appctrl_blocked.items() if blocked]
+        if not names:
+            messagebox.showinfo("Sin cambios", "Ninguna aplicación está bloqueada actualmente.")
+            return
+        if not messagebox.askyesno("Restaurar todas",
+                f"¿Restaurar el acceso a red de {len(names)} aplicación(es) bloqueada(s)?"):
+            return
+        for name in names:
+            self._appctrl_toggle(name)
 
     def _build_lock_card(self, parent, item: dict):
         """Build a single lock card with ON/OFF toggle."""
@@ -1363,7 +1922,9 @@ class WinCleanApp(tk.Tk):
                 )
                 return "STOPPED" in result.stdout or "DISABLED" in result.stdout
 
-            elif lid in ("lock_vnc_port", "lock_net_share", "lock_screen_capture"):
+            elif lid in ("lock_vnc_port", "lock_net_share", "lock_screen_capture",
+                         "lock_spice", "lock_nx", "lock_teamviewer", "lock_anydesk",
+                         "lock_rdp_udp", "lock_winrm_https", "lock_netbios", "lock_faronics"):
                 rule = item.get("fw_rule", "")
                 if rule:
                     result = subprocess.run(
@@ -1497,6 +2058,92 @@ class WinCleanApp(tk.Tk):
                     check=True, capture_output=True, creationflags=cf)
                 return True, ""
 
+            elif lid == "lock_spice":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_SPICE", "protocol=TCP", "dir=in",
+                    "localport=5910", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_nx":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_NX", "protocol=TCP", "dir=in",
+                    "localport=4000", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_teamviewer":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_TeamViewer", "protocol=TCP", "dir=in",
+                    "localport=5938", "action=block"],
+                    capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_TeamViewer_UDP", "protocol=UDP", "dir=in",
+                    "localport=5938", "action=block"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_anydesk":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_AnyDesk", "protocol=TCP", "dir=in",
+                    "localport=7070", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_rdp_udp":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_RDP_UDP", "protocol=UDP", "dir=in",
+                    "localport=3389", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_winrm_https":
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_WinRM_HTTPS", "protocol=TCP", "dir=in",
+                    "localport=5986", "action=block"],
+                    check=True, capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_netbios":
+                for port in ["137", "138", "139"]:
+                    for proto in ["TCP", "UDP"]:
+                        subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                            f"name=WinClean_Block_NetBIOS", f"protocol={proto}", "dir=in",
+                            f"localport={port}", "action=block"],
+                            capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_faronics":
+                # Block all Faronics Insight ports: 796, 11796 (TCP+UDP), 1053 UDP, 8080, 8085, 8888, 8889, 8890 TCP
+                for proto in ["TCP", "UDP"]:
+                    for port in ["796", "11796"]:
+                        subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                            f"name=WinClean_Block_Faronics", f"protocol={proto}", "dir=in",
+                            f"localport={port}", "action=block"],
+                            capture_output=True, creationflags=cf)
+                        subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                            f"name=WinClean_Block_Faronics", f"protocol={proto}", "dir=out",
+                            f"localport={port}", "action=block"],
+                            capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_Faronics", "protocol=UDP", "dir=in",
+                    "localport=1053", "action=block"],
+                    capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=WinClean_Block_Faronics", "protocol=UDP", "dir=out",
+                    "localport=1053", "action=block"],
+                    capture_output=True, creationflags=cf)
+                for port in ["8080", "8085", "8888", "8889", "8890"]:
+                    subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                        "name=WinClean_Block_Faronics", "protocol=TCP", "dir=in",
+                        f"localport={port}", "action=block"],
+                        capture_output=True, creationflags=cf)
+                    subprocess.run(["netsh", "advfirewall", "firewall", "add", "rule",
+                        "name=WinClean_Block_Faronics", "protocol=TCP", "dir=out",
+                        f"remoteport={port}", "action=block"],
+                        capture_output=True, creationflags=cf)
+                return True, ""
+
         except subprocess.CalledProcessError as e:
             return False, e.stderr.decode(errors="replace") if e.stderr else str(e)
         except Exception as e:
@@ -1558,6 +2205,36 @@ class WinCleanApp(tk.Tk):
                 subprocess.run(["reg", "delete",
                     r"HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services",
                     "/v", "fDisableScreenCapture", "/f"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid in ("lock_spice", "lock_nx", "lock_anydesk", "lock_rdp_udp",
+                         "lock_winrm_https"):
+                rule = item.get("fw_rule", "")
+                if rule:
+                    subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                        f"name={rule}"],
+                        capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_teamviewer":
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_TeamViewer"],
+                    capture_output=True, creationflags=cf)
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_TeamViewer_UDP"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_netbios":
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_NetBIOS"],
+                    capture_output=True, creationflags=cf)
+                return True, ""
+
+            elif lid == "lock_faronics":
+                subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=WinClean_Block_Faronics"],
                     capture_output=True, creationflags=cf)
                 return True, ""
 

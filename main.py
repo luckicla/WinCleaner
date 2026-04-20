@@ -1,5 +1,5 @@
 """
-WinCleaner v3.4 — entry point.
+WinCleaner v3.7.1 — entry point.
   Normal: python main.py          → opens full GUI
   Tray:   python main.py --tray   → starts in system tray, applies last profile silently
 """

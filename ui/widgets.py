@@ -533,7 +533,7 @@ class StatusBar(tk.Frame):
         tk.Label(self, textvariable=text_var, font=FONTS["small"],
                  bg=COLORS["surface"], fg=COLORS["text_muted"], anchor="w").pack(side="left", fill="x", expand=True)
 
-        tk.Label(self, text="WinClean v2.1 • Windows 10/11",
+        tk.Label(self, text="WinClean v3.7.1 • Windows 10/11",
                  font=FONTS["small"], bg=COLORS["surface"], fg=COLORS["border"]).pack(side="right", padx=12)
 
         text_var.trace_add("write", lambda *a: self._update_dot(text_var.get()))
